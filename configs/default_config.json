@@ -9,13 +9,13 @@
       "name": "DeepSeek-V3.1",
       "basemodel": "DeepSeek-V3.1",
       "signature": "DeepSeek-V3.1",
-      "enabled": false
+      "enabled": true
     },
     {
       "name": "qwen3-max",
       "basemodel": "qwen3-max",
       "signature": "qwen3-max",
-      "enabled": false
+      "enabled": true
     },
     {
       "name": "gpt-4.1",
