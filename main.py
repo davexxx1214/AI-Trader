@@ -224,6 +224,17 @@ async def main(config_path=None):
     
     print("🎉 All models processing completed!")
     
+    # 自动同步数据到 docs/data 目录以供可视化界面使用
+    try:
+        from sync_data_to_docs import sync_data_to_docs
+        print("\n🔄 正在同步数据到可视化界面...")
+        sync_data_to_docs()
+    except ImportError:
+        print("\n💡 提示: 运行 'python sync_data_to_docs.py' 可以将数据同步到 docs/data 目录")
+    except Exception as e:
+        print(f"\n⚠️  数据同步失败: {e}")
+        print("💡 提示: 可以手动运行 'python sync_data_to_docs.py' 来同步数据")
+    
 if __name__ == "__main__":
     import sys
     
