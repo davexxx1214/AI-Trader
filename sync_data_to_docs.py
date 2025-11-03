@@ -63,6 +63,14 @@ def sync_data_to_docs():
                     pass
     
     # 创建目标目录（确保不是符号链接）
+    if target_data_dir.exists():
+        if target_data_dir.is_file():
+            # 如果是文件，删除它
+            target_data_dir.unlink()
+        elif target_data_dir.is_symlink():
+            # 如果是符号链接，解除链接
+            target_data_dir.unlink()
+    
     if not target_data_dir.exists():
         target_data_dir.mkdir(parents=True, exist_ok=True)
     
@@ -91,7 +99,16 @@ def sync_data_to_docs():
                     elif target_agent_data.is_dir():
                         shutil.rmtree(target_agent_data)
             
-            # 复制数据
+            # 复制数据 - 先彻底清理目标
+            if target_agent_data.exists():
+                if target_agent_data.is_file():
+                    target_agent_data.unlink()
+                elif target_agent_data.is_dir():
+                    shutil.rmtree(target_agent_data)
+                elif target_agent_data.is_symlink():
+                    target_agent_data.unlink()
+            
+            # 现在复制
             shutil.copytree(source_agent_data, target_agent_data)
             print(f"✅ 已同步 agent_data 目录")
         except Exception as e:
