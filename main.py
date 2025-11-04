@@ -156,6 +156,7 @@ async def main(config_path=None):
     max_retries = agent_config.get("max_retries", 3)
     base_delay = agent_config.get("base_delay", 0.5)
     initial_cash = agent_config.get("initial_cash", 10000.0)
+    verbose = agent_config.get("verbose", False)
 
     # Display enabled model information
     model_names = [m.get("name", m.get("signature")) for m in enabled_models]
@@ -165,7 +166,7 @@ async def main(config_path=None):
     print(f"📅 Date range: {INIT_DATE} to {END_DATE}")
     print(f"🤖 Model list: {model_names}")
     print(
-        f"⚙️  Agent config: max_steps={max_steps}, max_retries={max_retries}, base_delay={base_delay}, initial_cash={initial_cash}"
+        f"⚙️  Agent config: max_steps={max_steps}, max_retries={max_retries}, base_delay={base_delay}, initial_cash={initial_cash}, verbose={verbose}"
     )
 
     for model_config in enabled_models:
@@ -231,7 +232,8 @@ async def main(config_path=None):
                 initial_cash=initial_cash,
                 init_date=INIT_DATE,
                 openai_base_url=openai_base_url,
-                openai_api_key=openai_api_key
+                openai_api_key=openai_api_key,
+                verbose=verbose
             )
 
             print(f"✅ {agent_type} instance created successfully: {agent}")
