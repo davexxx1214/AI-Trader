@@ -225,6 +225,7 @@ def get_today_init_position(today_date: str, modelname: str) -> Dict[str, float]
     """
     获取今日开盘时的初始持仓（即文件中上一个交易日代表的持仓）。从../data/agent_data/{modelname}/position/position.jsonl中读取。
     如果同一日期有多条记录，选择id最大的记录作为初始持仓。
+    如果找不到yesterday_date的数据，则查找position文件中最早的记录（用于处理从更早日期开始的情况）。
     
     Args:
         today_date: 日期字符串，格式 YYYY-MM-DD，代表今天日期。
@@ -243,6 +244,9 @@ def get_today_init_position(today_date: str, modelname: str) -> Dict[str, float]
     yesterday_date = get_yesterday_date(today_date)
     max_id = -1
     latest_positions = {}
+    
+    # 用于存储所有记录，以便在找不到yesterday_date时使用最早的记录
+    all_records = []
   
     with position_file.open("r", encoding="utf-8") as f:
         for line in f:
@@ -250,6 +254,7 @@ def get_today_init_position(today_date: str, modelname: str) -> Dict[str, float]
                 continue
             try:
                 doc = json.loads(line)
+                all_records.append(doc)
                 if doc.get("date") == yesterday_date:
                     current_id = doc.get("id", 0)
                     if current_id > max_id:
@@ -258,7 +263,92 @@ def get_today_init_position(today_date: str, modelname: str) -> Dict[str, float]
             except Exception:
                 continue
     
-    return latest_positions
+    # 如果找到了yesterday_date的数据，直接返回
+    if latest_positions:
+        return latest_positions
+    
+    # 如果找不到yesterday_date的数据，检查today_date是否早于position文件中的最早日期
+    if all_records:
+        # 先尝试查找id=0的记录（初始记录）
+        initial_record = None
+        for record in all_records:
+            if record.get("id", -1) == 0:
+                initial_record = record
+                break
+        
+        # 按日期排序，找到最早的记录
+        all_records.sort(key=lambda x: (x.get("date", ""), x.get("id", -1)))
+        earliest_record = all_records[0]
+        earliest_date = earliest_record.get("date", "")
+        
+        # 如果today_date早于position文件中的最早日期，说明是从更早的日期开始处理
+        # 此时应该使用初始记录（id=0）的持仓，如果没有则使用最早的记录
+        try:
+            from datetime import datetime
+            today_date_obj = datetime.strptime(today_date, "%Y-%m-%d")
+            earliest_date_obj = datetime.strptime(earliest_date, "%Y-%m-%d")
+            
+            if today_date_obj < earliest_date_obj:
+                # today_date早于position文件中的最早日期，使用初始记录或最早的记录
+                if initial_record:
+                    initial_positions = initial_record.get("positions", {})
+                    if initial_positions:
+                        print(f"ℹ️  {today_date} 早于position文件中的最早日期 ({earliest_date})，使用初始记录 (id=0) 的持仓")
+                        return initial_positions
+                
+                # 如果没有初始记录，尝试从最早的记录中构建初始持仓
+                earliest_positions = earliest_record.get("positions", {})
+                if earliest_positions:
+                    # 从最早的记录中获取所有股票代码（排除CASH）
+                    stock_symbols = [sym for sym in earliest_positions.keys() if sym != "CASH"]
+                    # 如果最早的记录中没有股票代码，使用默认的股票列表
+                    if not stock_symbols:
+                        stock_symbols = all_nasdaq_100_symbols
+                    
+                    # 检查最早的记录是否有持仓（非零股票）
+                    has_positions = any(earliest_positions.get(sym, 0) > 0 for sym in stock_symbols)
+                    
+                    if has_positions:
+                        # 如果最早的记录已经有持仓，说明已经进行过交易
+                        # 此时应该使用默认初始金额，因为无法准确推断初始CASH
+                        initial_cash = 10000.0
+                        print(f"ℹ️  {today_date} 早于position文件中的最早日期 ({earliest_date})，最早的记录已有持仓，使用默认初始金额 $10000")
+                    else:
+                        # 如果最早的记录没有持仓（所有股票为0），可以使用其CASH值作为初始金额
+                        initial_cash = earliest_positions.get("CASH", 10000.0)
+                        print(f"ℹ️  {today_date} 早于position文件中的最早日期 ({earliest_date})，从最早记录提取初始金额 ${initial_cash}")
+                    
+                    # 创建初始持仓：所有股票为0，CASH为初始金额
+                    init_position = {symbol: 0 for symbol in stock_symbols}
+                    init_position['CASH'] = initial_cash
+                    
+                    print(f"ℹ️  创建初始持仓 (所有股票为0，CASH=${initial_cash})")
+                    return init_position
+                
+                # 如果最早的记录也没有持仓信息，创建默认初始持仓
+                init_position = {symbol: 0 for symbol in all_nasdaq_100_symbols}
+                init_position['CASH'] = 10000.0
+                print(f"ℹ️  {today_date} 早于position文件中的最早日期 ({earliest_date})，创建默认初始持仓 (所有股票为0，CASH=$10000)")
+                return init_position
+            else:
+                # today_date晚于或等于最早日期，使用最早的记录作为初始持仓
+                earliest_positions = earliest_record.get("positions", {})
+                if earliest_positions:
+                    print(f"ℹ️  未找到 {yesterday_date} 的数据，使用最早的记录 ({earliest_date}) 作为初始持仓")
+                    return earliest_positions
+        except Exception as e:
+            # 日期解析失败，使用初始记录或最早的记录
+            if initial_record:
+                initial_positions = initial_record.get("positions", {})
+                if initial_positions:
+                    print(f"ℹ️  未找到 {yesterday_date} 的数据，使用初始记录 (id=0) 的持仓")
+                    return initial_positions
+            earliest_positions = earliest_record.get("positions", {})
+            if earliest_positions:
+                print(f"ℹ️  未找到 {yesterday_date} 的数据，使用最早的记录 ({earliest_date}) 作为初始持仓")
+                return earliest_positions
+    
+    return {}
 
 def get_latest_position(today_date: str, modelname: str) -> Dict[str, float]:
     """
