@@ -328,23 +328,37 @@ class BaseAgent:
         """
         dates = []
         max_date = None
+        min_date = None
         
         if not os.path.exists(self.position_file):
             self.register_agent()
             max_date = init_date
         else:
-            # Read existing position file, find latest date
+            # Read existing position file, find latest and earliest date
             with open(self.position_file, "r") as f:
                 for line in f:
                     doc = json.loads(line)
                     current_date = doc['date']
                     if max_date is None:
                         max_date = current_date
+                        min_date = current_date
                     else:
                         current_date_obj = datetime.strptime(current_date, "%Y-%m-%d")
                         max_date_obj = datetime.strptime(max_date, "%Y-%m-%d")
+                        min_date_obj = datetime.strptime(min_date, "%Y-%m-%d")
                         if current_date_obj > max_date_obj:
                             max_date = current_date
+                        if current_date_obj < min_date_obj:
+                            min_date = current_date
+            
+            # If init_date is earlier than existing data's earliest date, start from init_date
+            init_date_obj = datetime.strptime(init_date, "%Y-%m-%d")
+            min_date_obj = datetime.strptime(min_date, "%Y-%m-%d")
+            if init_date_obj < min_date_obj:
+                print(f"ℹ️  init_date ({init_date}) is earlier than existing data's earliest date ({min_date})")
+                print(f"ℹ️  Will process from {init_date} to {end_date}")
+                # Set max_date to one day before init_date so we start from init_date
+                max_date = (init_date_obj - timedelta(days=1)).strftime("%Y-%m-%d")
         
         # Check if new dates need to be processed
         max_date_obj = datetime.strptime(max_date, "%Y-%m-%d")
