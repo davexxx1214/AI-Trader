@@ -1,8 +1,8 @@
 {
   "agent_type": "BaseAgent",
   "date_range": {
-    "init_date": "2025-10-01",
-    "end_date": "2025-10-31"
+    "init_date": "2025-06-18",
+    "end_date": "2025-11-07"
   },
   "models": [
     {

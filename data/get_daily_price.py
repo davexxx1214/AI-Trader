@@ -3,7 +3,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 import json
-
+from pathlib import Path
+from datetime import datetime, timedelta
 
 all_nasdaq_100_symbols = [
     "NVDA", "MSFT", "AAPL", "GOOG", "GOOGL", "AMZN", "META", "AVGO", "TSLA",
@@ -19,9 +20,49 @@ all_nasdaq_100_symbols = [
     "ON", "BIIB", "LULU", "CDW", "GFS"
 ]
 
+def get_config_date_range():
+    """读取配置文件中的日期范围"""
+    try:
+        # 尝试读取配置文件
+        config_path = Path(__file__).parent.parent / "configs" / "default_config.json"
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                date_range = config.get("date_range", {})
+                init_date = date_range.get("init_date")
+                end_date = date_range.get("end_date")
+                if init_date and end_date:
+                    return init_date, end_date
+    except Exception as e:
+        print(f"⚠️  读取配置文件失败: {e}")
+    
+    # 如果没有配置文件或读取失败，检查环境变量
+    init_date = os.getenv("INIT_DATE")
+    end_date = os.getenv("END_DATE")
+    if init_date and end_date:
+        return init_date, end_date
+    
+    return None, None
+
 def get_daily_price(SYMBOL: str):
     FUNCTION = "TIME_SERIES_DAILY"
-    OUTPUTSIZE = 'compact'
+    
+    # 读取配置中的日期范围，决定使用 compact 还是 full
+    init_date, end_date = get_config_date_range()
+    OUTPUTSIZE = 'compact'  # 默认使用 compact
+    
+    if init_date:
+        try:
+            init_date_obj = datetime.strptime(init_date, "%Y-%m-%d")
+            # 如果起始日期早于100个交易日之前，使用full模式
+            # 100个交易日大约等于140个自然日（考虑周末）
+            days_ago = (datetime.now() - init_date_obj).days
+            if days_ago > 140:
+                OUTPUTSIZE = 'full'
+                print(f"ℹ️  检测到起始日期 {init_date}，使用 full 模式获取完整历史数据")
+        except Exception as e:
+            print(f"⚠️  解析日期失败: {e}，使用默认 compact 模式")
+    
     APIKEY = os.getenv("ALPHAADVANTAGE_API_KEY")
     url = f'https://www.alphavantage.co/query?function={FUNCTION}&symbol={SYMBOL}&outputsize={OUTPUTSIZE}&apikey={APIKEY}'
     r = requests.get(url)
