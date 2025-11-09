@@ -120,8 +120,10 @@ function Start-MCPServices {
     
     try {
         # 启动进程（后台运行，独立于Terminal）
+        # 使用 -u 参数禁用Python输出缓冲，设置环境变量确保实时输出
+        $env:PYTHONUNBUFFERED = "1"
         $process = Start-Process -FilePath "python" `
-            -ArgumentList "start_mcp_services.py" `
+            -ArgumentList @("-u", "start_mcp_services.py") `
             -WorkingDirectory $MCP_DIR `
             -WindowStyle Hidden `
             -PassThru `
@@ -186,13 +188,15 @@ function Start-Main {
     Push-Location $PROJECT_ROOT
     
     try {
-        # 构建参数
-        $argsList = @("`"$MAIN_SCRIPT`"")
+        # 构建参数 - 使用 -u 参数禁用Python输出缓冲
+        $argsList = @("-u", "`"$MAIN_SCRIPT`"")
         if ($Arguments.Count -gt 0) {
             $argsList += $Arguments
         }
         
         # 启动进程（后台运行，独立于Terminal）
+        # 设置环境变量确保实时输出
+        $env:PYTHONUNBUFFERED = "1"
         $process = Start-Process -FilePath "python" `
             -ArgumentList $argsList `
             -WorkingDirectory $PROJECT_ROOT `

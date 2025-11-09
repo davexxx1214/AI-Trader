@@ -120,8 +120,8 @@ start_mcp_services() {
     
     cd "$MCP_DIR"
     
-    # 使用nohup后台启动MCP服务
-    nohup python3 start_mcp_services.py > "$MCP_LOG" 2>&1 &
+    # 使用nohup后台启动MCP服务，使用 -u 参数禁用Python输出缓冲
+    PYTHONUNBUFFERED=1 nohup python3 -u start_mcp_services.py > "$MCP_LOG" 2>&1 &
     local mcp_pid=$!
     echo $mcp_pid > "$MCP_PID_FILE"
     
@@ -170,15 +170,15 @@ start_main() {
         return 0
     fi
     
-    # 构建命令
-    local cmd="python3 $MAIN_SCRIPT"
+    # 构建命令 - 使用 -u 参数禁用Python输出缓冲
+    local cmd="python3 -u $MAIN_SCRIPT"
     if [ $# -gt 0 ]; then
         cmd="$cmd $@"
     fi
     
-    # 使用nohup后台启动main.py
+    # 使用nohup后台启动main.py，设置PYTHONUNBUFFERED确保实时输出
     cd "$PROJECT_ROOT"
-    nohup $cmd > "$MAIN_LOG" 2>&1 &
+    PYTHONUNBUFFERED=1 nohup $cmd > "$MAIN_LOG" 2>&1 &
     local main_pid=$!
     echo $main_pid > "$MAIN_PID_FILE"
     
