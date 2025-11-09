@@ -298,6 +298,57 @@ python main.py
 python main.py configs/my_config.json
 ```
 
+### ⚡ 一键启动（推荐）
+
+我们提供了适用于Linux/Mac和Windows平台的一键启动脚本。这些脚本会自动检查服务状态，在后台启动服务，并显示日志。
+
+#### 🐧 Linux/Mac - 使用Bash脚本
+
+```bash
+# 赋予执行权限（首次使用）
+chmod +x start_all.sh
+
+# 一键启动
+./start_all.sh
+
+# 或使用自定义配置
+./start_all.sh configs/my_config.json
+
+# 查看实时日志
+tail -f logs/main_*.log
+```
+
+**功能特性:**
+- ✅ 自动检查并启动MCP服务（如果未运行）
+- ✅ 自动检查并启动main.py（如果未运行）
+- ✅ 使用`nohup`后台运行
+- ✅ 关闭Terminal后进程继续运行
+- ✅ 日志保存到`logs/`目录
+- ✅ 实时显示日志
+
+#### 🪟 Windows - 使用PowerShell脚本
+
+```powershell
+# 一键启动
+.\start_all.ps1
+
+# 或使用自定义配置
+.\start_all.ps1 configs/my_config.json
+
+# 查看实时日志
+Get-Content logs\main_*.log -Wait -Tail 50
+```
+
+**功能特性:**
+- ✅ 自动检查并启动MCP服务（如果未运行）
+- ✅ 自动检查并启动main.py（如果未运行）
+- ✅ 使用`Start-Process`后台运行
+- ✅ 关闭Terminal后进程继续运行
+- ✅ 日志保存到`logs/`目录
+- ✅ 实时显示日志
+
+**注意:** 脚本会自动检测服务是否已在运行，避免重复启动。
+
 ### ⏰ 时间设置示例
 
 #### 📅 创建自定义时间配置

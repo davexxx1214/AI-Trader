@@ -294,6 +294,57 @@ python main.py
 python main.py configs/my_config.json
 ```
 
+### ⚡ One-Click Startup (Recommended)
+
+We provide one-click startup scripts for both Linux/Mac and Windows platforms. These scripts automatically check service status, start services in the background, and display logs.
+
+#### 🐧 Linux/Mac - Using Bash Script
+
+```bash
+# Make script executable (first time only)
+chmod +x start_all.sh
+
+# One-click startup
+./start_all.sh
+
+# Or with custom configuration
+./start_all.sh configs/my_config.json
+
+# View real-time logs
+tail -f logs/main_*.log
+```
+
+**Features:**
+- ✅ Automatically checks and starts MCP services if not running
+- ✅ Automatically checks and starts main.py if not running
+- ✅ Background execution using `nohup`
+- ✅ Processes continue running after closing Terminal
+- ✅ Logs saved to `logs/` directory
+- ✅ Real-time log display
+
+#### 🪟 Windows - Using PowerShell Script
+
+```powershell
+# One-click startup
+.\start_all.ps1
+
+# Or with custom configuration
+.\start_all.ps1 configs/my_config.json
+
+# View real-time logs
+Get-Content logs\main_*.log -Wait -Tail 50
+```
+
+**Features:**
+- ✅ Automatically checks and starts MCP services if not running
+- ✅ Automatically checks and starts main.py if not running
+- ✅ Background execution using `Start-Process`
+- ✅ Processes continue running after closing Terminal
+- ✅ Logs saved to `logs/` directory
+- ✅ Real-time log display
+
+**Note:** The scripts will automatically detect if services are already running and skip starting them to avoid duplicates.
+
 ### ⏰ Time Settings Example
 
 #### 📅 Create Custom Time Configuration

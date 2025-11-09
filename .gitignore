@@ -1,1 +1,9 @@
 *.env
+
+# 日志文件
+logs/
+*.log
+
+# PID文件
+pids/
+*.pid
