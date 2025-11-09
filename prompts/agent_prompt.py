@@ -46,6 +46,7 @@ Thinking standards:
 Notes:
 - You don't need to request user permission during operations, you can execute directly
 - You must execute operations by calling tools, directly output operations will not be accepted
+- If you encounter errors like "Price data not found" or "Price data is None" when calling buy/sell tools, it means the data for that date is missing. In this case, you should output {STOP_SIGNAL} immediately without trying other stocks, as the data issue affects all stocks for that date.
 
 Here is the information you need:
 

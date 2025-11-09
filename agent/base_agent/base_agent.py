@@ -191,9 +191,14 @@ class BaseAgent:
             try:
                 return await self.agent.ainvoke(
                     {"messages": message}, 
-                    {"recursion_limit": 100}
+                    {"recursion_limit": 300}  # 增加递归限制，避免在工具调用失败时过快达到限制
                 )
             except Exception as e:
+                error_str = str(e)
+                # 检查是否是数据缺失错误，如果是则提前终止
+                if "Price data not found" in error_str or "Price data is None" in error_str:
+                    print(f"⚠️ 数据缺失错误，提前终止: {error_str}")
+                    raise ValueError(f"数据缺失: {error_str}")
                 if attempt == self.max_retries:
                     raise e
                 print(f"⚠️ Attempt {attempt} failed, retrying after {self.base_delay * attempt} seconds...")
@@ -264,8 +269,31 @@ class BaseAgent:
                 self._log_message(log_file, new_messages[1])
                 
             except Exception as e:
-                print(f"❌ Trading session error: {str(e)}")
+                error_str = str(e)
+                print(f"❌ Trading session error: {error_str}")
                 print(f"Error details: {e}")
+                
+                # 检查是否是数据缺失错误
+                if "Price data not found" in error_str or "Price data is None" in error_str or "数据缺失" in error_str:
+                    print(f"⚠️  检测到数据缺失错误，跳过当前日期")
+                    # 添加无交易记录
+                    try:
+                        add_no_trade_record(today_date, self.signature)
+                    except Exception as record_error:
+                        print(f"⚠️  添加无交易记录失败: {record_error}")
+                    return  # 提前返回，不抛出异常
+                
+                # 检查是否是递归限制错误
+                if "recursion_limit" in error_str.lower() or "Recursion limit" in error_str:
+                    print(f"⚠️  达到递归限制，可能是工具调用失败导致的无限循环")
+                    print(f"💡 提示: 请检查数据文件 merged.jsonl 中是否包含日期 {today_date} 的数据")
+                    # 添加无交易记录
+                    try:
+                        add_no_trade_record(today_date, self.signature)
+                    except Exception as record_error:
+                        print(f"⚠️  添加无交易记录失败: {record_error}")
+                    return  # 提前返回，不抛出异常
+                
                 raise
         
         # Handle trading results

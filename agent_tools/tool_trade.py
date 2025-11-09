@@ -60,10 +60,18 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
     # Use get_open_prices function to get the opening price of specified stock for the day
     # If stock symbol does not exist or price data is missing, KeyError exception will be raised
     try:
-        this_symbol_price = get_open_prices(today_date, [symbol])[f'{symbol}_price']
-    except KeyError:
+        price_dict = get_open_prices(today_date, [symbol])
+        price_key = f'{symbol}_price'
+        if price_key not in price_dict:
+            return {"error": f"Price data not found for symbol {symbol} on date {today_date}. Please check if the date exists in merged.jsonl and if you have fetched data for this date range.", "symbol": symbol, "date": today_date}
+        this_symbol_price = price_dict[price_key]
+        if this_symbol_price is None:
+            return {"error": f"Price data is None for symbol {symbol} on date {today_date}. Please check if the date exists in merged.jsonl.", "symbol": symbol, "date": today_date}
+    except KeyError as e:
         # Stock symbol does not exist or price data is missing, return error message
-        return {"error": f"Symbol {symbol} not found! This action will not be allowed.", "symbol": symbol, "date": today_date}
+        return {"error": f"Symbol {symbol} not found! This action will not be allowed. Error: {str(e)}", "symbol": symbol, "date": today_date}
+    except Exception as e:
+        return {"error": f"Error getting price for {symbol} on {today_date}: {str(e)}", "symbol": symbol, "date": today_date}
 
     # Step 4: Validate buy conditions
     # Calculate cash required for purchase: stock price × buy quantity
@@ -148,10 +156,18 @@ def sell(symbol: str, amount: int) -> Dict[str, Any]:
     # Use get_open_prices function to get the opening price of specified stock for the day
     # If stock symbol does not exist or price data is missing, KeyError exception will be raised
     try:
-        this_symbol_price = get_open_prices(today_date, [symbol])[f'{symbol}_price']
-    except KeyError:
+        price_dict = get_open_prices(today_date, [symbol])
+        price_key = f'{symbol}_price'
+        if price_key not in price_dict:
+            return {"error": f"Price data not found for symbol {symbol} on date {today_date}. Please check if the date exists in merged.jsonl and if you have fetched data for this date range.", "symbol": symbol, "date": today_date}
+        this_symbol_price = price_dict[price_key]
+        if this_symbol_price is None:
+            return {"error": f"Price data is None for symbol {symbol} on date {today_date}. Please check if the date exists in merged.jsonl.", "symbol": symbol, "date": today_date}
+    except KeyError as e:
         # Stock symbol does not exist or price data is missing, return error message
-        return {"error": f"Symbol {symbol} not found! This action will not be allowed.", "symbol": symbol, "date": today_date}
+        return {"error": f"Symbol {symbol} not found! This action will not be allowed. Error: {str(e)}", "symbol": symbol, "date": today_date}
+    except Exception as e:
+        return {"error": f"Error getting price for {symbol} on {today_date}: {str(e)}", "symbol": symbol, "date": today_date}
 
     # Step 4: Validate sell conditions
     # Check if holding this stock
