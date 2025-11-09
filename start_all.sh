@@ -121,7 +121,8 @@ start_mcp_services() {
     cd "$MCP_DIR"
     
     # 使用nohup后台启动MCP服务，使用 -u 参数禁用Python输出缓冲
-    PYTHONUNBUFFERED=1 nohup python3 -u start_mcp_services.py > "$MCP_LOG" 2>&1 &
+    # 使用stdbuf确保无缓冲输出
+    PYTHONUNBUFFERED=1 nohup stdbuf -oL -eL python3 -u start_mcp_services.py > "$MCP_LOG" 2>&1 &
     local mcp_pid=$!
     echo $mcp_pid > "$MCP_PID_FILE"
     
@@ -177,27 +178,36 @@ start_main() {
     fi
     
     # 使用nohup后台启动main.py，设置PYTHONUNBUFFERED确保实时输出
+    # 使用stdbuf确保无缓冲输出
     cd "$PROJECT_ROOT"
-    PYTHONUNBUFFERED=1 nohup $cmd > "$MAIN_LOG" 2>&1 &
+    PYTHONUNBUFFERED=1 nohup stdbuf -oL -eL $cmd > "$MAIN_LOG" 2>&1 &
     local main_pid=$!
     echo $main_pid > "$MAIN_PID_FILE"
     
     echo -e "${GREEN}✅ main.py 已启动 (PID: $main_pid)${NC}"
     echo -e "${BLUE}📝 日志文件: $MAIN_LOG${NC}"
     
-    # 等待一下让日志生成
-    sleep 2
+    # 等待一下让日志生成，并检查进程是否还在运行
+    sleep 3
     
-    # 显示日志的最后30行
+    # 检查进程是否还在运行
+    if ! ps -p $main_pid > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  进程已结束，显示完整日志:${NC}"
+        sleep 1  # 再等待一下确保日志完全写入
+    fi
+    
+    # 显示日志的最后50行（增加行数以显示更多内容）
     if [ -f "$MAIN_LOG" ]; then
         echo ""
-        echo -e "${BLUE}📋 显示日志文件最后30行:${NC}"
+        echo -e "${BLUE}📋 显示日志文件最后50行:${NC}"
         echo "============================================================"
-        tail -n 30 "$MAIN_LOG"
+        tail -n 50 "$MAIN_LOG"
         echo "============================================================"
         echo ""
         echo -e "${GREEN}💡 提示: 使用以下命令查看实时日志:${NC}"
         echo -e "   ${YELLOW}tail -f $MAIN_LOG${NC}"
+        echo ""
+        echo -e "${BLUE}📊 日志文件总行数: $(wc -l < "$MAIN_LOG")${NC}"
     fi
     
     return 0
