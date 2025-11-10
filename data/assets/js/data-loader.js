@@ -89,12 +89,31 @@ class DataLoader {
     }
 
     // Get closing price for a symbol on a specific date
+    // If the date is a holiday/weekend, find the most recent trading day's price
     async getClosingPrice(symbol, date) {
         const prices = await this.loadStockPrice(symbol);
-        if (!prices || !prices[date]) {
+        if (!prices) {
             return null;
         }
-        return parseFloat(prices[date]['4. close']);
+        
+        // If exact date exists, return it
+        if (prices[date]) {
+            return parseFloat(prices[date]['4. close']);
+        }
+        
+        // Otherwise, find the most recent trading day before this date
+        const dateObj = new Date(date + 'T00:00:00');
+        const availableDates = Object.keys(prices).sort().reverse(); // Sort descending
+        
+        // Find the most recent date that is before or equal to the requested date
+        for (const availableDate of availableDates) {
+            const availableDateObj = new Date(availableDate + 'T00:00:00');
+            if (availableDateObj <= dateObj) {
+                return parseFloat(prices[availableDate]['4. close']);
+            }
+        }
+        
+        return null;
     }
 
     // Calculate total asset value for a position on a given date
