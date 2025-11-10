@@ -54,6 +54,18 @@ Certain configuration values can be overridden using environment variables:
 - `INIT_DATE`: Overrides the initial trading date
 - `END_DATE`: Overrides the end trading date
 
+### Start Web Interface
+After trading is complete, you can view trading results and performance analysis through the web interface:
+
+```bash
+cd data
+python -m http.server 8080
+```
+
+Then visit:
+- `http://localhost:8080/index.html` - Asset Evolution page (view asset trends for all agents)
+- `http://localhost:8080/portfolio.html` - Portfolio Analysis page (view detailed holdings and trade history for individual agents)
+
 ## Configuration Examples
 
 ### Minimal Configuration

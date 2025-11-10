@@ -54,6 +54,18 @@ python livebaseagent_config.py configs/my_custom_config.json
 - `INIT_DATE`: 覆盖初始交易日期
 - `END_DATE`: 覆盖结束交易日期
 
+### 启动 Web 界面
+交易完成后，可以通过 Web 界面查看交易结果和性能分析：
+
+```bash
+cd data
+python -m http.server 8080
+```
+
+然后访问：
+- `http://localhost:8080/index.html` - 资产演化页面（查看所有 Agent 的资产变化趋势）
+- `http://localhost:8080/portfolio.html` - 投资组合分析页面（查看单个 Agent 的详细持仓和交易记录）
+
 ## 配置示例
 
 ### 最小配置
