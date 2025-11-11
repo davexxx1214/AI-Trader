@@ -1,7 +1,7 @@
 {
   "agent_type": "BaseAgent",
   "date_range": {
-    "init_date": "2025-06-18",
+    "init_date": "2025-01-01",
     "end_date": "2025-11-07"
   },
   "models": [
@@ -12,10 +12,16 @@
       "enabled": true
     },
     {
+      "name": "GLM-4.6",
+      "basemodel": "GLM-4.6",
+      "signature": "GLM-4.6",
+      "enabled": true
+    },
+    {
       "name": "qwen3-max",
       "basemodel": "qwen3-max",
       "signature": "qwen3-max",
-      "enabled": true
+      "enabled": false
     },
     {
       "name": "gpt-4.1",
