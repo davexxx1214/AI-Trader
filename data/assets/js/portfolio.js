@@ -6,6 +6,23 @@ let allAgentsData = {};
 let currentAgent = null;
 let allocationChart = null;
 
+// Sort agents by return (highest first), with QQQ benchmark always last
+function getSortedAgentNames(agentsData) {
+    const agentNames = Object.keys(agentsData);
+    const qqqName = agentNames.find(name => name === 'QQQ');
+    const otherAgents = agentNames.filter(name => name !== 'QQQ');
+    
+    // Sort other agents by return (descending)
+    const sortedOtherAgents = otherAgents.sort((a, b) => {
+        const returnA = agentsData[a].return || 0;
+        const returnB = agentsData[b].return || 0;
+        return returnB - returnA; // Descending order
+    });
+    
+    // QQQ always at the end if it exists
+    return qqqName ? [...sortedOtherAgents, qqqName] : sortedOtherAgents;
+}
+
 // Initialize the page
 async function init() {
     showLoading();
@@ -19,8 +36,9 @@ async function init() {
         // Populate agent selector
         populateAgentSelector();
 
-        // Load first agent by default
-        const firstAgent = Object.keys(allAgentsData)[0];
+        // Load first agent by default (sorted by return)
+        const sortedAgentNames = getSortedAgentNames(allAgentsData);
+        const firstAgent = sortedAgentNames[0];
         if (firstAgent) {
             currentAgent = firstAgent;
             await loadAgentPortfolio(firstAgent);
@@ -42,7 +60,10 @@ function populateAgentSelector() {
     const select = document.getElementById('agentSelect');
     select.innerHTML = '';
 
-    Object.keys(allAgentsData).forEach(agentName => {
+    // Get sorted agent names (by return, QQQ last)
+    const sortedAgentNames = getSortedAgentNames(allAgentsData);
+
+    sortedAgentNames.forEach(agentName => {
         const option = document.createElement('option');
         option.value = agentName;
         // Use text only for dropdown options (HTML select doesn't support images well)
