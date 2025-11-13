@@ -19,6 +19,7 @@ class DataLoader {
                 'deepseek-chat',
                 'gpt-4.1',
                 'qwen3-max',
+                'GLM-4.6',
             ];
 
             const agents = [];
@@ -370,6 +371,7 @@ class DataLoader {
             'deepseek-chat': 'DeepSeek Chat',
             'gpt-4.1': 'GPT-4.1',
             'qwen3-max': 'Qwen3 Max',
+            'GLM-4.6': 'GLM-4.6',
             'QQQ': 'QQQ invesco'
         };
         return names[agentName] || agentName;
@@ -381,6 +383,7 @@ class DataLoader {
             'deepseek-chat': './figs/deepseek.svg',
             'gpt-4.1': './figs/openai.svg',
             'qwen3-max': './figs/qwen.svg',
+            'GLM-4.6': './figs/glm.svg',
             'QQQ': './figs/stock.svg'  // 使用默认图标
         };
         return icons[agentName] || './figs/stock.svg';
@@ -392,6 +395,7 @@ class DataLoader {
         if (agentName.includes('deepseek')) return 'deepseek-chat';
         if (agentName.includes('gpt')) return 'gpt-4.1';
         if (agentName.includes('qwen')) return 'qwen3-max';
+        if (agentName.toLowerCase().includes('glm')) return 'GLM-4.6';
         return agentName;
     }
 
@@ -401,6 +405,7 @@ class DataLoader {
             'deepseek-chat': '#4a90e2',      // DeepSeek Blue
             'gpt-4.1': '#10a37f',            // OpenAI Green
             'qwen3-max': '#0066ff',          // Qwen Blue
+            'GLM-4.6': '#8b5cf6',            // GLM Purple
             'QQQ': '#ff6b00'                 // QQQ Orange
         };
         return colors[agentName] || null;

@@ -21,6 +21,23 @@ const agentColors = [
 // Cache for loaded SVG images
 const iconImageCache = {};
 
+// Sort agents by return (highest first), with QQQ benchmark always last
+function getSortedAgentNames(agentsData) {
+    const agentNames = Object.keys(agentsData);
+    const qqqName = agentNames.find(name => name === 'QQQ');
+    const otherAgents = agentNames.filter(name => name !== 'QQQ');
+    
+    // Sort other agents by return (descending)
+    const sortedOtherAgents = otherAgents.sort((a, b) => {
+        const returnA = agentsData[a].return || 0;
+        const returnB = agentsData[b].return || 0;
+        return returnB - returnA; // Descending order
+    });
+    
+    // QQQ always at the end if it exists
+    return qqqName ? [...sortedOtherAgents, qqqName] : sortedOtherAgents;
+}
+
 // Function to load SVG as image
 function loadIconImage(iconPath) {
     return new Promise((resolve, reject) => {
@@ -133,7 +150,10 @@ function createChart() {
     });
     const sortedDates = Array.from(allDates).sort();
 
-    const datasets = Object.keys(allAgentsData).map((agentName, index) => {
+    // Get sorted agent names (by return, QQQ last)
+    const sortedAgentNames = getSortedAgentNames(allAgentsData);
+
+    const datasets = sortedAgentNames.map((agentName, index) => {
         const data = allAgentsData[agentName];
         let color, borderWidth, borderDash;
         
@@ -327,7 +347,10 @@ function createLegend() {
     const legendContainer = document.getElementById('agentLegend');
     legendContainer.innerHTML = '';
 
-    Object.keys(allAgentsData).forEach((agentName, index) => {
+    // Get sorted agent names (by return, QQQ last)
+    const sortedAgentNames = getSortedAgentNames(allAgentsData);
+
+    sortedAgentNames.forEach((agentName, index) => {
         const data = allAgentsData[agentName];
         let color, borderStyle;
         
