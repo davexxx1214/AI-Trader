@@ -228,31 +228,31 @@ def is_trading_day(date: str, market: str = "us") -> bool:
     Returns:
         True if the date exists in merged.jsonl (is a trading day), False otherwise
     """
-    # MVP assumption: crypto trades every day
-    if market == "crypto":
-        # Parse input date/time and compare real-world time (to the minute).
-        # If input has no time part, default to 00:00. Supported formats:
-        #   "YYYY-MM-DD", "YYYY-MM-DD HH:MM", "YYYY-MM-DD HH:MM:SS"
-        fmt_candidates = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"]
-        input_dt = None
-        for fmt in fmt_candidates:
-            try:
-                input_dt = datetime.strptime(date, fmt)
-                break
-            except Exception:
-                continue
-        if input_dt is None:
-            # Unable to parse input date -> treat as not a trading day
-            return False
+    # MVP assumption: crypto trades every day, but the date should not be neither in the future nor no any data yet.
+    # if market == "crypto":
+    #     # Parse input date/time and compare real-world time (to the minute).
+    #     # If input has no time part, default to 00:00. Supported formats:
+    #     #   "YYYY-MM-DD", "YYYY-MM-DD HH:MM", "YYYY-MM-DD HH:MM:SS"
+    #     fmt_candidates = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"]
+    #     input_dt = None
+    #     for fmt in fmt_candidates:
+    #         try:
+    #             input_dt = datetime.strptime(date, fmt)
+    #             break
+    #         except Exception:
+    #             continue
+    #     if input_dt is None:
+    #         # Unable to parse input date -> treat as not a trading day
+    #         return False
 
-        # Normalize to minute precision (ignore seconds/microseconds)
-        input_dt = input_dt.replace(second=0, microsecond=0)
-        now_minute = datetime.now().replace(second=0, microsecond=0)
+    #     # Normalize to minute precision (ignore seconds/microseconds)
+    #     input_dt = input_dt.replace(second=0, microsecond=0)
+    #     now_minute = datetime.now().replace(second=0, microsecond=0)
 
-        # If current real-world time is earlier than the requested time, it's future -> return False
-        if now_minute < input_dt:
-            return False
-        return True
+    #     # If current real-world time is earlier than the requested time, it's future -> return False
+    #     if now_minute < input_dt:
+    #         return False
+    #     return True
 
     merged_file_path = get_merged_file_path(market)
 
