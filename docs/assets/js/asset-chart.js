@@ -267,11 +267,12 @@ function createChart() {
         return gradient;
     }
 
-    // Custom plugin to draw icons on chart lines
+    // Custom plugin to draw icons on chart lines with pulsing animation
     const iconPlugin = {
         id: 'iconLabels',
         afterDatasetsDraw: (chart) => {
             const ctx = chart.ctx;
+            const now = Date.now();
 
             chart.data.datasets.forEach((dataset, datasetIndex) => {
                 const meta = chart.getDatasetMeta(datasetIndex);
@@ -285,29 +286,79 @@ function createChart() {
 
                         ctx.save();
 
-                        // Draw background circle with glow
-                        const iconSize = 30;
+                        // Calculate pulse animation values
+                        const pulseSpeed = 1500; // milliseconds per cycle
+                        const phase = ((now + datasetIndex * 300) % pulseSpeed) / pulseSpeed; // Offset each line
+                        const pulse = Math.sin(phase * Math.PI * 2) * 0.5 + 0.5; // 0 to 1
+
+                        // Draw animated ripple rings (outer glow effect)
+                        for (let i = 0; i < 3; i++) {
+                            const ripplePhase = ((now + datasetIndex * 300 + i * 500) % 2000) / 2000;
+                            const rippleSize = 6 + ripplePhase * 20;
+                            const rippleOpacity = (1 - ripplePhase) * 0.4;
+
+                            ctx.strokeStyle = dataset.borderColor;
+                            ctx.globalAlpha = rippleOpacity;
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.arc(x, y, rippleSize, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+
+                        ctx.globalAlpha = 1;
+
+                        // Draw main pulsing point
+                        const pointSize = 5 + pulse * 3;
 
                         // Outer glow
+                        ctx.shadowColor = dataset.borderColor;
+                        ctx.shadowBlur = 10 + pulse * 15;
+                        ctx.fillStyle = dataset.borderColor;
+                        ctx.beginPath();
+                        ctx.arc(x, y, pointSize, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Inner bright core
+                        ctx.shadowBlur = 5;
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(x, y, pointSize * 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Reset shadow
+                        ctx.shadowBlur = 0;
+
+                        // Draw icon image with glow background (positioned to the right)
+                        const iconSize = 30;
+                        const iconX = x + 22;
+
+                        // Icon background circle with glow
                         ctx.shadowColor = dataset.borderColor;
                         ctx.shadowBlur = 15;
                         ctx.fillStyle = dataset.borderColor;
                         ctx.beginPath();
-                        ctx.arc(x + 22, y, iconSize / 2, 0, Math.PI * 2);
+                        ctx.arc(iconX, y, iconSize / 2, 0, Math.PI * 2);
                         ctx.fill();
 
-                        // Reset shadow
+                        // Reset shadow for icon
                         ctx.shadowBlur = 0;
 
                         // Draw icon image if loaded
                         if (iconImageCache[dataset.agentIcon]) {
                             const img = iconImageCache[dataset.agentIcon];
                             const imgSize = iconSize * 0.6; // Icon slightly smaller than circle
-                            ctx.drawImage(img, x + 22 - imgSize/2, y - imgSize/2, imgSize, imgSize);
+                            ctx.drawImage(img, iconX - imgSize/2, y - imgSize/2, imgSize, imgSize);
                         }
 
                         ctx.restore();
                     }
+                }
+            });
+
+            // Request animation frame to continuously update the pulse effect
+            requestAnimationFrame(() => {
+                if (chart && !chart.destroyed) {
+                    chart.update('none'); // Update without animation to maintain smooth pulse
                 }
             });
         }

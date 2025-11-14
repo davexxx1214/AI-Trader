@@ -82,7 +82,28 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
     today_date = get_config_value("TODAY_DATE")
 
     # Auto-detect market type based on symbol format
-    market = "cn" if symbol.endswith((".SH", ".SZ")) else "us"
+    if symbol.endswith((".SH", ".SZ")):
+        market = "cn"
+    else:
+        market = "us"
+
+    # Amount validation for stocks
+    try:
+        amount = int(amount)  # Convert to int for stocks
+    except ValueError:
+        return {
+            "error": f"Invalid amount format. Amount must be an integer for stock trading. You provided: {amount}",
+            "symbol": symbol,
+            "date": today_date,
+        }
+
+    if amount <= 0:
+        return {
+            "error": f"Amount must be positive. You tried to buy {amount} shares.",
+            "symbol": symbol,
+            "amount": amount,
+            "date": today_date,
+        }
 
     # 🇨🇳 Chinese A-shares trading rule: Must trade in lots of 100 shares (一手 = 100股)
     if market == "cn" and amount % 100 != 0:
@@ -255,7 +276,28 @@ def sell(symbol: str, amount: int) -> Dict[str, Any]:
     today_date = get_config_value("TODAY_DATE")
 
     # Auto-detect market type based on symbol format
-    market = "cn" if symbol.endswith((".SH", ".SZ")) else "us"
+    if symbol.endswith((".SH", ".SZ")):
+        market = "cn"
+    else:
+        market = "us"
+
+    # Amount validation for stocks
+    try:
+        amount = int(amount)  # Convert to int for stocks
+    except ValueError:
+        return {
+            "error": f"Invalid amount format. Amount must be an integer for stock trading. You provided: {amount}",
+            "symbol": symbol,
+            "date": today_date,
+        }
+
+    if amount <= 0:
+        return {
+            "error": f"Amount must be positive. You tried to sell {amount} shares.",
+            "symbol": symbol,
+            "amount": amount,
+            "date": today_date,
+        }
 
     # 🇨🇳 Chinese A-shares trading rule: Must trade in lots of 100 shares (一手 = 100股)
     if market == "cn" and amount % 100 != 0:

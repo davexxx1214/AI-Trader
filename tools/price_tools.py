@@ -15,6 +15,33 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 from tools.general_tools import get_config_value
 
+
+def get_market_type() -> str:
+    """
+    智能获取市场类型，支持多种检测方式：
+    1. 优先从配置中读取 MARKET
+    2. 如果未设置，则根据 LOG_PATH 推断（agent_data_astock -> cn, agent_data_crypto -> crypto, agent_data -> us）
+    3. 最后默认为 us
+
+    Returns:
+        "cn" for A-shares market, "us" for US market, "crypto" for cryptocurrency market
+    """
+    # 方式1: 从配置读取
+    market = get_config_value("MARKET", None)
+    if market in ["cn", "us", "crypto"]:
+        return market
+
+    # 方式2: 根据 LOG_PATH 推断
+    log_path = get_config_value("LOG_PATH", "./data/agent_data")
+    if "astock" in log_path.lower() or "a_stock" in log_path.lower():
+        return "cn"
+    elif "crypto" in log_path.lower():
+        return "crypto"
+
+    # 方式3: 默认为美股
+    return "us"
+
+
 all_nasdaq_100_symbols = [
     "NVDA",
     "MSFT",
@@ -177,7 +204,7 @@ def get_merged_file_path(market: str = "us") -> Path:
     """Get merged.jsonl path based on market type.
 
     Args:
-        market: Market type, "us" for US stocks or "cn" for A-shares
+        market: Market type, "us" for US stocks, "cn" for A-shares, "crypto" for cryptocurrencies
 
     Returns:
         Path object pointing to the merged.jsonl file
@@ -185,6 +212,8 @@ def get_merged_file_path(market: str = "us") -> Path:
     base_dir = Path(__file__).resolve().parents[1]
     if market == "cn":
         return base_dir / "data" / "A_stock" / "merged.jsonl"
+    elif market == "crypto":
+        return base_dir / "data" / "crypto" / "crypto_merged.jsonl"
     else:
         return base_dir / "data" / "merged.jsonl"
 
@@ -194,11 +223,37 @@ def is_trading_day(date: str, market: str = "us") -> bool:
 
     Args:
         date: Date string in "YYYY-MM-DD" format
-        market: Market type ("us" or "cn")
+        market: Market type ("us", "cn", or "crypto")
 
     Returns:
         True if the date exists in merged.jsonl (is a trading day), False otherwise
     """
+    # MVP assumption: crypto trades every day
+    if market == "crypto":
+        # Parse input date/time and compare real-world time (to the minute).
+        # If input has no time part, default to 00:00. Supported formats:
+        #   "YYYY-MM-DD", "YYYY-MM-DD HH:MM", "YYYY-MM-DD HH:MM:SS"
+        fmt_candidates = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"]
+        input_dt = None
+        for fmt in fmt_candidates:
+            try:
+                input_dt = datetime.strptime(date, fmt)
+                break
+            except Exception:
+                continue
+        if input_dt is None:
+            # Unable to parse input date -> treat as not a trading day
+            return False
+
+        # Normalize to minute precision (ignore seconds/microseconds)
+        input_dt = input_dt.replace(second=0, microsecond=0)
+        now_minute = datetime.now().replace(second=0, microsecond=0)
+
+        # If current real-world time is earlier than the requested time, it's future -> return False
+        if now_minute < input_dt:
+            return False
+        return True
+
     merged_file_path = get_merged_file_path(market)
 
     if not merged_file_path.exists():
@@ -211,9 +266,18 @@ def is_trading_day(date: str, market: str = "us") -> bool:
             for line in f:
                 try:
                     data = json.loads(line.strip())
+                    # Check for daily time series first
                     time_series = data.get("Time Series (Daily)", {})
                     if date in time_series:
                         return True
+
+                    # If no daily data, check for hourly data (e.g., "Time Series (60min)")
+                    for key, value in data.items():
+                        if key.startswith("Time Series") and isinstance(value, dict):
+                            # Check if any hourly timestamp starts with the date
+                            for timestamp in value.keys():
+                                if timestamp.startswith(date):
+                                    return True
                 except json.JSONDecodeError:
                     continue
             # If we get here, checked all stocks and date was not found in any
@@ -324,14 +388,15 @@ def format_price_dict_with_names(
     return formatted_dict
 
 
-def get_yesterday_date(today_date: str) -> str:
+def get_yesterday_date(today_date: str, merged_path: Optional[str] = None, market: str = "us") -> str:
     """
     获取输入日期的上一个交易日或时间点。
     从 merged.jsonl 读取所有可用的交易时间，然后找到 today_date 的上一个时间。
     
     Args:
         today_date: 日期字符串，格式 YYYY-MM-DD 或 YYYY-MM-DD HH:MM:SS。
-        merged_path: 可选，自定义 merged.jsonl 路径；默认读取项目根目录下 data/merged.jsonl。
+        merged_path: 可选，自定义 merged.jsonl 路径；默认根据 market 参数读取对应市场的 merged.jsonl。
+        market: 市场类型，"us" 为美股，"cn" 为A股
 
     Returns:
         yesterday_date: 上一个交易日或时间点的字符串，格式与输入一致。
@@ -346,8 +411,7 @@ def get_yesterday_date(today_date: str) -> str:
     
     # 获取 merged.jsonl 文件路径
     if merged_path is None:
-        base_dir = Path(__file__).resolve().parents[1]
-        merged_file = base_dir / "data" / "merged.jsonl"
+        merged_file = get_merged_file_path(market)
     else:
         merged_file = Path(merged_path)
     
@@ -507,7 +571,7 @@ def get_yesterday_open_and_close_price(
     if not merged_file.exists():
         return buy_results, sell_results
 
-    yesterday_date = get_yesterday_date(today_date)
+    yesterday_date = get_yesterday_date(today_date, merged_path=merged_path, market=market)
 
     with merged_file.open("r", encoding="utf-8") as f:
         for line in f:
@@ -643,25 +707,37 @@ def get_today_init_position(today_date: str, signature: str) -> Dict[str, float]
         {symbol: weight} 的字典；若未找到对应日期，则返回空字典。
     """
     from tools.general_tools import get_config_value
+    import os
 
     base_dir = Path(__file__).resolve().parents[1]
 
     # Get log_path from config, default to "agent_data" for backward compatibility
     log_path = get_config_value("LOG_PATH", "./data/agent_data")
-    if log_path.startswith("./data/"):
-        log_path = log_path[7:]  # Remove "./data/" prefix
 
-    position_file = base_dir / "data" / log_path / signature / "position" / "position.jsonl"
+    # Handle different path formats:
+    # - If it's an absolute path (like temp directory), use it directly
+    # - If it's a relative path starting with "./data/", remove the prefix and prepend base_dir/data
+    # - Otherwise, treat as relative to base_dir/data
+    if os.path.isabs(log_path):
+        # Absolute path (like temp directory) - use directly
+        position_file = Path(log_path) / signature / "position" / "position.jsonl"
+    else:
+        if log_path.startswith("./data/"):
+            log_path = log_path[7:]  # Remove "./data/" prefix
+        position_file = base_dir / "data" / log_path / signature / "position" / "position.jsonl"
 #     position_file = base_dir / "data" / "agent_data" / signature / "position" / "position.jsonl"
 
     if not position_file.exists():
         print(f"Position file {position_file} does not exist")
         return {}
     
-    yesterday_date = get_yesterday_date(today_date)
+    # 获取市场类型，智能判断
+    market = get_market_type()
+    yesterday_date = get_yesterday_date(today_date, market=market)
     
     max_id = -1
     latest_positions = {}
+    all_records = []
   
     with position_file.open("r", encoding="utf-8") as f:
         for line in f:
@@ -700,35 +776,55 @@ def get_latest_position(today_date: str, signature: str) -> Tuple[Dict[str, floa
           - max_id: 选中记录的最大 id；若未找到任何记录，则为 -1.
     """
     from tools.general_tools import get_config_value
+    import os
 
     base_dir = Path(__file__).resolve().parents[1]
 
     # Get log_path from config, default to "agent_data" for backward compatibility
     log_path = get_config_value("LOG_PATH", "./data/agent_data")
-    if log_path.startswith("./data/"):
-        log_path = log_path[7:]  # Remove "./data/" prefix
 
-    position_file = base_dir / "data" / log_path / signature / "position" / "position.jsonl"
+    # Handle different path formats:
+    # - If it's an absolute path (like temp directory), use it directly
+    # - If it's a relative path starting with "./data/", remove the prefix and prepend base_dir/data
+    # - Otherwise, treat as relative to base_dir/data
+    if os.path.isabs(log_path):
+        # Absolute path (like temp directory) - use directly
+        position_file = Path(log_path) / signature / "position" / "position.jsonl"
+    else:
+        if log_path.startswith("./data/"):
+            log_path = log_path[7:]  # Remove "./data/" prefix
+        position_file = base_dir / "data" / log_path / signature / "position" / "position.jsonl"
 
     if not position_file.exists():
         return {}, -1
 
-    # Read all records and organize by date
-    all_records = []
+    # 获取市场类型，智能判断
+    market = get_market_type()
+    
+    # Step 1: 先查找当天的记录
+    max_id_today = -1
+    latest_positions_today: Dict[str, float] = {}
+    
     with position_file.open("r", encoding="utf-8") as f:
         for line in f:
             if not line.strip():
                 continue
             try:
                 doc = json.loads(line)
-                record_date = doc.get("date")
-                if record_date:
-                    all_records.append(doc)
+                if doc.get("date") == today_date:
+                    current_id = doc.get("id", -1)
+                    if current_id > max_id_today:
+                        max_id_today = current_id
+                        latest_positions_today = doc.get("positions", {})
             except Exception:
                 continue
-
-    # 当天没有记录，则回退到上一个交易日
-    prev_date = get_yesterday_date(today_date)
+    
+    # 如果当天有记录，直接返回
+    if max_id_today >= 0 and latest_positions_today:
+        return latest_positions_today, max_id_today
+    
+    # Step 2: 当天没有记录，则回退到上一个交易日
+    prev_date = get_yesterday_date(today_date, market=market)
     
     max_id_prev = -1
     latest_positions_prev: Dict[str, float] = {}
@@ -746,6 +842,26 @@ def get_latest_position(today_date: str, signature: str) -> Tuple[Dict[str, floa
                         latest_positions_prev = doc.get("positions", {})
             except Exception:
                 continue
+    
+    # 如果前一天也没有记录，尝试找文件中最新的记录（按日期和id排序）
+    if max_id_prev < 0 or not latest_positions_prev:
+        all_records = []
+        with position_file.open("r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    doc = json.loads(line)
+                    if doc.get("date") and doc.get("date") < today_date:
+                        all_records.append(doc)
+                except Exception:
+                    continue
+        
+        if all_records:
+            # 按日期和id排序，取最新的一条
+            all_records.sort(key=lambda x: (x.get("date", ""), x.get("id", 0)), reverse=True)
+            latest_positions_prev = all_records[0].get("positions", {})
+            max_id_prev = all_records[0].get("id", -1)
     
     return latest_positions_prev, max_id_prev
 
@@ -769,15 +885,24 @@ def add_no_trade_record(today_date: str, signature: str):
     save_item["positions"] = current_position
 
     from tools.general_tools import get_config_value
+    import os
 
     base_dir = Path(__file__).resolve().parents[1]
 
     # Get log_path from config, default to "agent_data" for backward compatibility
     log_path = get_config_value("LOG_PATH", "./data/agent_data")
-    if log_path.startswith("./data/"):
-        log_path = log_path[7:]  # Remove "./data/" prefix
 
-    position_file = base_dir / "data" / log_path / signature / "position" / "position.jsonl"
+    # Handle different path formats:
+    # - If it's an absolute path (like temp directory), use it directly
+    # - If it's a relative path starting with "./data/", remove the prefix and prepend base_dir/data
+    # - Otherwise, treat as relative to base_dir/data
+    if os.path.isabs(log_path):
+        # Absolute path (like temp directory) - use directly
+        position_file = Path(log_path) / signature / "position" / "position.jsonl"
+    else:
+        if log_path.startswith("./data/"):
+            log_path = log_path[7:]  # Remove "./data/" prefix
+        position_file = base_dir / "data" / log_path / signature / "position" / "position.jsonl"
 
     with position_file.open("a", encoding="utf-8") as f:
         f.write(json.dumps(save_item) + "\n")
