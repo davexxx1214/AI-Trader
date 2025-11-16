@@ -175,10 +175,15 @@ AI-Trader Bench/
 │   ├── main.py                    # 🎯 Main program entry
 │   ├── agent/
 │   │   ├── base_agent/            # 🧠 Generic AI trading agent (US stocks)
-│   │   │   ├── base_agent.py      # Base agent class
+│   │   │   ├── base_agent.py      # Base agent class (daily)
+│   │   │   ├── base_agent_hour.py # Hourly trading agent (US stocks)
 │   │   │   └── __init__.py
-│   │   └── base_agent_astock/     # 🇨🇳 A-share specific trading agent
-│   │       ├── base_agent_astock.py  # A-share agent class
+│   │   ├── base_agent_astock/     # 🇨🇳 A-share specific trading agent
+│   │   │   ├── base_agent_astock.py  # A-share agent class (daily)
+│   │   │   ├── base_agent_astock_hour.py # A-share hourly trading agent
+│   │   │   └── __init__.py
+│   │   └── base_agent_crypto/     # ₿ Cryptocurrency specific trading agent
+│   │       ├── base_agent_crypto.py # Crypto agent class
 │   │       └── __init__.py
 │   └── configs/                   # ⚙️ Configuration files
 │
@@ -265,9 +270,11 @@ AI-Trader Bench/
 #### 🤖 AI Agent System
 | Agent Type | Module Path | Use Case | Features |
 |-----------|-------------|----------|----------|
-| **BaseAgent** | `agent.base_agent` | US/A-shares generic | Flexible market switching, configurable stock pool |
-| **BaseAgentAStock** | `agent.base_agent_astock` | A-share specific | Built-in A-share rules, SSE 50 default pool, Chinese prompts |
-| **BaseAgentCrypto** | `agent.base_agent_crypto` | Cryptocurrency specific | BITWISE10 crypto pool, USDT denominated |
+| **BaseAgent** | `agent.base_agent.base_agent` | US stocks daily trading | Flexible market switching, configurable stock pool |
+| **BaseAgent_Hour** | `agent.base_agent.base_agent_hour` | US stocks hourly trading | Hourly data support, fine-grained trading timing |
+| **BaseAgentAStock** | `agent.base_agent_astock.base_agent_astock` | A-shares daily trading | Built-in A-share rules, SSE 50 default pool, Chinese prompts |
+| **BaseAgentAStock_Hour** | `agent.base_agent_astock.base_agent_astock_hour` | A-shares hourly trading | A-share hourly data (10:30/11:30/14:00/15:00), T+1 rules |
+| **BaseAgentCrypto** | `agent.base_agent_crypto.base_agent_crypto` | Cryptocurrency trading | BITWISE10 crypto pool, USDT denominated |
 
 **Architecture Advantages**:
 - 🔄 **Clear Separation**: US, A-share, and cryptocurrency agents independently maintained without interference
@@ -504,10 +511,10 @@ python main.py configs/default_crypto_config.json
 }
 ```
 
-#### 📅 A-Share Configuration Example (Using BaseAgentAStock)
+#### 📅 A-Share Daily Configuration Example (Using BaseAgentAStock)
 ```json
 {
-  "agent_type": "BaseAgentAStock",  // A-share specific agent
+  "agent_type": "BaseAgentAStock",  // A-share daily specific agent
   "market": "cn",                   // Market type: "cn" A-shares (optional, will be ignored, always uses cn)
   "date_range": {
     "init_date": "2025-10-09",      // Backtest start date
@@ -523,11 +530,42 @@ python main.py configs/default_crypto_config.json
   ],
   "agent_config": {
     "initial_cash": 100000.0        // Initial capital: ¥100,000
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_astock"  // A-share daily data path
   }
 }
 ```
 
-> 💡 **Tip**: When using `BaseAgentAStock`, the `market` parameter is automatically set to `"cn"` and doesn't need to be specified manually.
+#### 📅 A-Share Hourly Configuration Example (Using BaseAgentAStock_Hour)
+```json
+{
+  "agent_type": "BaseAgentAStock_Hour",  // A-share hourly specific agent
+  "market": "cn",                        // Market type: "cn" A-shares (optional, will be ignored, always uses cn)
+  "date_range": {
+    "init_date": "2025-10-09 10:30:00",  // Backtest start time (hourly)
+    "end_date": "2025-10-31 15:00:00"    // Backtest end time (hourly)
+  },
+  "models": [
+    {
+      "name": "claude-3.7-sonnet",
+      "basemodel": "anthropic/claude-3.7-sonnet",
+      "signature": "claude-3.7-sonnet-astock-hour",
+      "enabled": true
+    }
+  ],
+  "agent_config": {
+    "initial_cash": 100000.0        // Initial capital: ¥100,000
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_astock_hour"  // A-share hourly data path
+  }
+}
+```
+
+> 💡 **Tip**: A-share hourly trading time points: 10:30, 11:30, 14:00, 15:00 (4 time points per day)
+
+> 💡 **Tip**: When using `BaseAgentAStock` or `BaseAgentAStock_Hour`, the `market` parameter is automatically set to `"cn"` and doesn't need to be specified manually.
 
 #### 📅 Cryptocurrency Configuration Example (Using BaseAgentCrypto)
 ```json
@@ -618,11 +656,13 @@ python3 -m http.server 8000
 
 #### 📋 Agent Type Details
 
-| Agent Type | Applicable Markets | Features |
-|-----------|-------------------|----------|
-| **BaseAgent** | US / A-shares | • Generic trading agent<br>• Switch markets via `market` parameter<br>• Flexible stock pool configuration |
-| **BaseAgentAStock** | A-share specific | • Optimized for A-shares<br>• Built-in A-share trading rules (100-share lots, T+1)<br>• Default SSE 50 stock pool<br>• Chinese Yuan pricing |
-| **BaseAgentCrypto** | Crypto specific | • Default BITWISE 10<br>• USDT pricing |
+| Agent Type | Applicable Markets | Trading Frequency | Features |
+|-----------|-------------------|------------------|----------|
+| **BaseAgent** | US stocks | Daily | • Generic trading agent<br>• Switch markets via `market` parameter<br>• Flexible stock pool configuration |
+| **BaseAgent_Hour** | US stocks | Hourly | • US stocks hourly trading<br>• Fine-grained trading timing control<br>• Supports intraday trading decisions |
+| **BaseAgentAStock** | A-shares | Daily | • Optimized for A-share daily trading<br>• Built-in A-share trading rules (100-share lots, T+1)<br>• Default SSE 50 stock pool<br>• Chinese Yuan pricing |
+| **BaseAgentAStock_Hour** | A-shares | Hourly | • A-share hourly trading (10:30/11:30/14:00/15:00)<br>• Supports 4 intraday time points<br>• Inherits all A-share trading rules<br>• Data source: merged_hourly.jsonl |
+| **BaseAgentCrypto** | Cryptocurrencies | Daily | • Optimized for cryptocurrencies<br>• Default BITWISE10 index pool<br>• USDT pricing<br>• Supports entire week trading |
 
 ### 📊 Data Format
 

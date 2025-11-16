@@ -24,7 +24,19 @@ def _position_lock(signature: str):
     """Context manager for file-based lock to serialize position updates per signature."""
     class _Lock:
         def __init__(self, name: str):
-            base_dir = Path(project_root) / "data" / "agent_data" / name
+            # Prefer LOG_PATH so the lock file lives alongside the positions file
+            log_path = get_config_value("LOG_PATH", "./data/agent_data")
+            # Resolve base dir for this signature under the configured log path
+            if os.path.isabs(log_path):
+                # Absolute path (e.g., temp directory)
+                base_dir = Path(log_path) / name
+            else:
+                # Relative path: treat "./data/xxx" specially to keep compatibility
+                if log_path.startswith("./data/"):
+                    log_rel = log_path[7:]  # strip "./data/"
+                else:
+                    log_rel = log_path
+                base_dir = Path(project_root) / "data" / log_rel / name
             base_dir.mkdir(parents=True, exist_ok=True)
             self.lock_path = base_dir / ".position.lock"
             # Ensure lock file exists
@@ -138,13 +150,29 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
             "symbol": symbol,
             "date": today_date,
         }
+    # Validate price availability (e.g., timestamp not present in dataset yet)
+    if this_symbol_price is None:
+        return {
+            "error": f"Price data not available for {symbol} at {today_date}.",
+            "symbol": symbol,
+            "date": today_date,
+            "market": market,
+        }
 
     # Step 4: Validate buy conditions
     # Calculate cash required for purchase: stock price × buy quantity
     try:
         cash_left = current_position["CASH"] - this_symbol_price * amount
     except Exception as e:
-        print(current_position, "CASH", this_symbol_price, amount)
+        # Defensive: if any unexpected structure, surface a clear error
+        return {
+            "error": f"Failed to compute cash after purchase: {e}",
+            "symbol": symbol,
+            "date": today_date,
+            "price": this_symbol_price,
+            "amount": amount,
+            "position_keys": list(current_position.keys()),
+        }
 
     # Check if cash balance is sufficient for purchase
     if cash_left < 0:
@@ -165,7 +193,7 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
         new_position["CASH"] = cash_left
 
         # Increase stock position quantity
-        new_position[symbol] += amount
+        new_position[symbol] = new_position.get(symbol, 0) + amount
 
         # Step 6: Record transaction to position.jsonl file
         # Build file path: {project_root}/data/{log_path}/{signature}/position/position.jsonl

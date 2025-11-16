@@ -11,7 +11,8 @@ This directory contains multiple configuration files for different trading scena
 | Configuration File | Market | Trading Frequency | Description |
 |-------------------|--------|-------------------|-------------|
 | `default_config.json` | US (NASDAQ 100) | Daily | Default US stock trading configuration |
-| `astock_config.json` | CN (SSE 50) | Daily | A-share market trading configuration |
+| `astock_config.json` | CN (SSE 50) | Daily | A-share daily trading configuration |
+| `astock_hour_config.json` | CN (SSE 50) | Hourly | A-share hourly trading configuration (10:30/11:30/14:00/15:00) |
 
 ### `default_config.json`
 
@@ -115,7 +116,7 @@ Certain configuration values can be overridden using environment variables:
 }
 ```
 
-### A-Share Configuration (BaseAgentAStock)
+### A-Share Daily Configuration (BaseAgentAStock)
 ```json
 {
   "agent_type": "BaseAgentAStock",
@@ -141,6 +142,35 @@ Certain configuration values can be overridden using environment variables:
   }
 }
 ```
+
+### A-Share Hourly Configuration (BaseAgentAStock_Hour)
+```json
+{
+  "agent_type": "BaseAgentAStock_Hour",
+  "market": "cn",
+  "date_range": {
+    "init_date": "2025-10-09 10:30:00",
+    "end_date": "2025-10-31 15:00:00"
+  },
+  "models": [
+    {
+      "name": "claude-3.7-sonnet",
+      "basemodel": "anthropic/claude-3.7-sonnet",
+      "signature": "claude-3.7-sonnet-astock-hour",
+      "enabled": true
+    }
+  ],
+  "agent_config": {
+    "max_steps": 30,
+    "initial_cash": 100000.0
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_astock_hour"
+  }
+}
+```
+
+> 💡 **Tip**: A-share hourly trading time points: 10:30, 11:30, 14:00, 15:00 (4 time points per day)
 
 ### Multi-Model Configuration
 ```json
@@ -184,16 +214,32 @@ Certain configuration values can be overridden using environment variables:
 
 ## Agent Types
 
-### BaseAgent
-- **Market Support**: US stocks or A-shares (configurable via `market` parameter)
+### BaseAgent (US Stocks Daily)
+- **Market Support**: US stocks
+- **Trading Frequency**: Daily
 - **Use Case**: General-purpose trading agent with flexible market selection
-- **Stock Pool**: Configurable (NASDAQ 100 by default for US, SSE 50 for CN)
+- **Stock Pool**: Configurable (NASDAQ 100 by default)
 
-### BaseAgentAStock
+### BaseAgent_Hour (US Stocks Hourly)
+- **Market Support**: US stocks
+- **Trading Frequency**: Hourly
+- **Use Case**: US stocks hourly trading with fine-grained timing control
+- **Stock Pool**: Configurable (NASDAQ 100 by default)
+
+### BaseAgentAStock (A-Shares Daily)
 - **Market Support**: A-share market only
-- **Use Case**: Specialized A-share trading with built-in Chinese market rules
+- **Trading Frequency**: Daily
+- **Use Case**: Specialized A-share daily trading with built-in Chinese market rules
 - **Stock Pool**: SSE 50 by default
 - **Trading Rules**: T+1 settlement, 100-share lot size, CNY pricing
+
+### BaseAgentAStock_Hour (A-Shares Hourly)
+- **Market Support**: A-share market only
+- **Trading Frequency**: Hourly (10:30/11:30/14:00/15:00)
+- **Use Case**: A-share hourly trading with 4 intraday time points
+- **Stock Pool**: SSE 50 by default
+- **Trading Rules**: T+1 settlement, 100-share lot size, CNY pricing
+- **Data Source**: merged_hourly.jsonl
 
 ## Notes
 

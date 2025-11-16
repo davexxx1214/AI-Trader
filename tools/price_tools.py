@@ -7,13 +7,41 @@ import json
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
 # 将项目根目录加入 Python 路径，便于从子目录直接运行本文件
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 from tools.general_tools import get_config_value
+
+def _normalize_timestamp_str(ts: str) -> str:
+    """
+    Normalize timestamp string to zero-padded HH for robust string/chrono comparisons.
+    - If ts has time part like 'YYYY-MM-DD H:MM:SS', pad hour to 'HH'.
+    - If ts is date-only, return as-is.
+    """
+    try:
+        if " " not in ts:
+            return ts
+        date_part, time_part = ts.split(" ", 1)
+        parts = time_part.split(":")
+        if len(parts) != 3:
+            return ts
+        hour, minute, second = parts
+        hour = hour.zfill(2)
+        return f"{date_part} {hour}:{minute}:{second}"
+    except Exception:
+        return ts
+
+def _parse_timestamp_to_dt(ts: str) -> datetime:
+    """
+    Parse timestamp string to datetime, supporting both date-only and datetime.
+    Assumes ts is already normalized if time exists.
+    """
+    if " " in ts:
+        return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+    return datetime.strptime(ts, "%Y-%m-%d")
 
 
 def get_market_type() -> str:
@@ -217,6 +245,24 @@ def get_merged_file_path(market: str = "us") -> Path:
     else:
         return base_dir / "data" / "merged.jsonl"
 
+def _resolve_merged_file_path_for_date(
+    today_date: Optional[str], market: str, merged_path: Optional[str] = None
+) -> Path:
+    """
+    Resolve the correct merged data file path taking into account market and granularity.
+    For A-shares:
+      - Daily: data/A_stock/merged.jsonl
+      - Hourly (timestamp contains space): data/A_stock/merged_hourly.jsonl
+    A custom merged_path, if provided, takes precedence.
+    """
+    if merged_path is not None:
+        return Path(merged_path)
+    base_dir = Path(__file__).resolve().parents[1]
+    if market == "cn" and today_date and " " in today_date:
+        # Hourly trading session for A-shares
+        return base_dir / "data" / "A_stock" / "merged_hourly.jsonl"
+    return get_merged_file_path(market)
+
 
 def is_trading_day(date: str, market: str = "us") -> bool:
     """Check if a given date is a trading day by looking up merged.jsonl.
@@ -410,10 +456,7 @@ def get_yesterday_date(today_date: str, merged_path: Optional[str] = None, marke
         date_only = True
     
     # 获取 merged.jsonl 文件路径
-    if merged_path is None:
-        merged_file = get_merged_file_path(market)
-    else:
-        merged_file = Path(merged_path)
+    merged_file = _resolve_merged_file_path_for_date(today_date, market, merged_path)
     
     if not merged_file.exists():
         # 如果文件不存在，根据输入类型回退
@@ -504,10 +547,7 @@ def get_open_prices(
     wanted = set(symbols)
     results: Dict[str, Optional[float]] = {}
 
-    if merged_path is None:
-        merged_file = get_merged_file_path(market)
-    else:
-        merged_file = Path(merged_path)
+    merged_file = _resolve_merged_file_path_for_date(today_date, market, merged_path)
 
     if not merged_file.exists():
         return results
@@ -563,10 +603,7 @@ def get_yesterday_open_and_close_price(
     buy_results: Dict[str, Optional[float]] = {}
     sell_results: Dict[str, Optional[float]] = {}
 
-    if merged_path is None:
-        merged_file = get_merged_file_path(market)
-    else:
-        merged_file = Path(merged_path)
+    merged_file = _resolve_merged_file_path_for_date(today_date, market, merged_path)
 
     if not merged_file.exists():
         return buy_results, sell_results
@@ -657,12 +694,18 @@ def get_yesterday_profit(
     stock_symbols: Optional[List[str]] = None,
 ) -> Dict[str, float]:
     """
-    获取今日开盘时持仓的收益，收益计算方式为：(昨日收盘价格 - 昨日开盘价格)*当前持仓。
+    获取持仓收益（适用于日线和小时级交易）
+    
+    收益计算方式为：(前一时间点收盘价 - 前一时间点开盘价) × 当前持仓数量
+    
+    对于日线交易：计算昨日的收益
+    对于小时级交易：计算上一小时的收益
+    
     Args:
-        today_date: 日期字符串，格式 YYYY-MM-DD，代表今天日期。
-        yesterday_buy_prices: 昨日开盘价格字典，格式为 {symbol_price: price}
-        yesterday_sell_prices: 昨日收盘价格字典，格式为 {symbol_price: price}
-        yesterday_init_position: 昨日初始持仓字典，格式为 {symbol: weight}
+        today_date: 日期/时间字符串，格式 YYYY-MM-DD 或 YYYY-MM-DD HH:MM:SS
+        yesterday_buy_prices: 前一时间点开盘价格字典，格式为 {symbol_price: price}
+        yesterday_sell_prices: 前一时间点收盘价格字典，格式为 {symbol_price: price}
+        yesterday_init_position: 前一时间点初始持仓字典，格式为 {symbol: quantity}
         stock_symbols: 股票代码列表，默认为 all_nasdaq_100_symbols
 
     Returns:
@@ -843,23 +886,40 @@ def get_latest_position(today_date: str, signature: str) -> Tuple[Dict[str, floa
             except Exception:
                 continue
     
-    # 如果前一天也没有记录，尝试找文件中最新的记录（按日期和id排序）
+    # 如果前一天也没有记录，尝试找文件中最新的非空记录（按实际时间和id排序）
     if max_id_prev < 0 or not latest_positions_prev:
-        all_records = []
+        all_records: List[Dict[str, Any]] = []
+        norm_today = _normalize_timestamp_str(today_date)
+        today_dt = _parse_timestamp_to_dt(norm_today)
         with position_file.open("r", encoding="utf-8") as f:
             for line in f:
                 if not line.strip():
                     continue
                 try:
                     doc = json.loads(line)
-                    if doc.get("date") and doc.get("date") < today_date:
-                        all_records.append(doc)
+                    doc_date = doc.get("date")
+                    if not doc_date:
+                        continue
+                    norm_doc_date = _normalize_timestamp_str(doc_date)
+                    doc_dt = _parse_timestamp_to_dt(norm_doc_date)
+                    # 仅考虑早于today_date的记录
+                    if doc_dt < today_dt:
+                        positions = doc.get("positions", {})
+                        # 跳过空持仓记录
+                        if positions:
+                            all_records.append(doc)
                 except Exception:
                     continue
         
         if all_records:
-            # 按日期和id排序，取最新的一条
-            all_records.sort(key=lambda x: (x.get("date", ""), x.get("id", 0)), reverse=True)
+            # 先按实际时间排序，再按id排序，取最新的一条
+            all_records.sort(
+                key=lambda x: (
+                    _parse_timestamp_to_dt(_normalize_timestamp_str(x.get("date", "1900-01-01"))),
+                    x.get("id", 0),
+                ),
+                reverse=True,
+            )
             latest_positions_prev = all_records[0].get("positions", {})
             max_id_prev = all_records[0].get("id", -1)
     
