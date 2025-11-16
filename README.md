@@ -194,16 +194,23 @@ AI-Trader Bench/
 ├── 📊 Data System
 │   ├── data/
 │   │   ├── daily_prices_*.json    # 📈 NASDAQ 100 stock price data
-│   │   ├── merged.jsonl           # 🔄 US stocks unified data format
+│   │   ├── merged.jsonl           # 🔄 US stocks daily unified data format
 │   │   ├── get_daily_price.py     # 📥 US stocks data fetching script
 │   │   ├── merge_jsonl.py         # 🔄 US stocks data format conversion
 │   │   ├── A_stock/               # 🇨🇳 A-share market data
-│   │   │   ├── sse_50_weight.csv          # 📋 SSE 50 constituent stocks
-│   │   │   ├── daily_prices_sse_50.csv    # 📈 Daily price data (CSV)
-│   │   │   ├── merged.jsonl               # 🔄 A-share unified data format
-│   │   │   ├── index_daily_sse_50.json    # 📊 SSE 50 index benchmark data
-│   │   │   ├── get_daily_price_a_stock.py # 📥 A-share data fetching script
-│   │   │   └── merge_a_stock_jsonl.py     # 🔄 A-share data format conversion
+│   │   │   ├── A_stock_data/              # 📁 A-share data storage directory
+│   │   │   │   ├── sse_50_weight.csv          # 📋 SSE 50 constituent weights
+│   │   │   │   ├── daily_prices_sse_50.csv    # 📈 Daily price data (CSV)
+│   │   │   │   ├── A_stock_hourly.csv         # ⏰ 60-minute K-line data (CSV)
+│   │   │   │   └── index_daily_sse_50.json    # 📊 SSE 50 index benchmark data
+│   │   │   ├── merged.jsonl               # 🔄 A-share daily unified data format
+│   │   │   ├── merged_hourly.jsonl        # ⏰ A-share hourly unified data format
+│   │   │   ├── get_daily_price_tushare.py # 📥 A-share daily data fetching (Tushare API)
+│   │   │   ├── get_daily_price_alphavantage.py # 📥 A-share daily data fetching (Alpha Vantage API)
+│   │   │   ├── get_interdaily_price_astock.py # ⏰ A-share hourly data fetching (efinance)
+│   │   │   ├── merge_jsonl_tushare.py     # 🔄 A-share daily data format conversion (Tushare API)
+│   │   │   ├── merge_jsonl_alphavantage.py # 🔄 A-share daily data format conversion (Alpha Vantage API)
+│   │   │   └── merge_jsonl_hourly.py      # ⏰ A-share hourly data format conversion (efinance)
 │   │   ├── crypto/                # ₿ Cryptocurrency market data
 │   │   │   ├── coin/                        # 📊 Individual crypto price files
 │   │   │   │   ├── daily_prices_BTC.json   # Bitcoin price data
@@ -421,14 +428,24 @@ python merge_jsonl.py
 #### 🇨🇳 A-Share Market Data (SSE 50)
 
 ```bash
-# 📈 Get Chinese A-share market data (SSE 50 Index)
+# 📈 Get Chinese A-share daily market data (SSE 50 Index)
 cd data/A_stock
-python get_daily_price_a_stock.py
 
-# 🔄 Convert to JSONL format (required for trading)
-python merge_a_stock_jsonl.py
+# 📈 Method 1: Get daily data using Tushare API (Recommended)
+python get_daily_price_tushare.py
+python merge_jsonl_tushare.py
 
-# 📊 Data will be saved to: data/A_stock/merged.jsonl
+# 📈 Method 2: Get daily data using Alpha Vantage API (Alternative)
+python get_daily_price_alphavantage.py
+python merge_jsonl_alphavantage.py
+
+# 📊 Daily data will be saved to: data/A_stock/merged.jsonl
+
+# ⏰ Get 60-minute K-line data (hourly trading)
+python get_interdaily_price_astock.py
+python merge_jsonl_hourly.py
+
+# 📊 Hourly data will be saved to: data/A_stock/merged_hourly.jsonl
 ```
 
 
@@ -755,6 +772,7 @@ Thanks to the following open source projects and services:
 - [MCP](https://github.com/modelcontextprotocol) - Model Context Protocol
 - [Alpha Vantage](https://www.alphavantage.co/) - US stock financial data API
 - [Tushare](https://tushare.pro/) - China A-share market data API
+- [efinance](https://github.com/Micro-sheep/efinance) - A-share hourly data acquisition
 - [Jina AI](https://jina.ai/) - Information search service
 
 ## 👥 Administrator

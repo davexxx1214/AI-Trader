@@ -205,16 +205,23 @@ AI-Trader Bench/
 ├── 📊 数据系统
 │   ├── data/
 │   │   ├── daily_prices_*.json    # 📈 纳斯达克100股票价格数据
-│   │   ├── merged.jsonl           # 🔄 美股统一数据格式
+│   │   ├── merged.jsonl           # 🔄 美股日线统一数据格式
 │   │   ├── get_daily_price.py     # 📥 美股数据获取脚本
 │   │   ├── merge_jsonl.py         # 🔄 美股数据格式转换
 │   │   ├── A_stock/               # 🇨🇳 A股市场数据
-│   │   │   ├── sse_50_weight.csv          # 📋 上证50成分股
-│   │   │   ├── daily_prices_sse_50.csv    # 📈 日线价格数据（CSV）
-│   │   │   ├── merged.jsonl               # 🔄 A股统一数据格式
-│   │   │   ├── index_daily_sse_50.json    # 📊 上证50指数基准数据
-│   │   │   ├── get_daily_price_a_stock.py # 📥 A股数据获取脚本
-│   │   │   └── merge_a_stock_jsonl.py     # 🔄 A股数据格式转换
+│   │   │   ├── A_stock_data/              # 📁 A股数据存储目录
+│   │   │   │   ├── sse_50_weight.csv          # 📋 上证50成分股权重
+│   │   │   │   ├── daily_prices_sse_50.csv    # 📈 日线价格数据（CSV）
+│   │   │   │   ├── A_stock_hourly.csv         # ⏰ 60分钟K线数据（CSV）
+│   │   │   │   └── index_daily_sse_50.json    # 📊 上证50指数基准数据
+│   │   │   ├── merged.jsonl               # 🔄 A股日线统一数据格式
+│   │   │   ├── merged_hourly.jsonl        # ⏰ A股小时级统一数据格式
+│   │   │   ├── get_daily_price_tushare.py # 📥 A股日线数据获取（Tushare API）
+│   │   │   ├── get_daily_price_alphavantage.py # 📥 A股日线数据获取（Alpha Vantage API）
+│   │   │   ├── get_interdaily_price_astock.py # ⏰ A股小时级数据获取（efinance）
+│   │   │   ├── merge_jsonl_tushare.py     # 🔄 A股日线数据格式转换（Tushare）
+│   │   │   ├── merge_jsonl_alphavantage.py # 🔄 A股日线数据格式转换（Alpha Vantage）
+│   │   │   └── merge_jsonl_hourly.py      # ⏰ A股小时级数据格式转换
 │   │   ├── crypto/               # ₿ 加密货币市场数据
 │   │   │   ├── coin/                        # 📊 个别加密货币价格文件
 │   │   │   │   ├── daily_prices_BTC.json   # 比特币价格数据
@@ -432,14 +439,23 @@ python merge_jsonl.py
 #### 🇨🇳 A股市场数据（上证50）
 
 ```bash
-# 📈 获取中国A股市场数据（上证50指数）
 cd data/A_stock
-python get_daily_price_a_stock.py
 
-# 🔄 转换为JSONL格式（交易系统必需）
-python merge_a_stock_jsonl.py
+# 📈 方法1：使用 Tushare API 获取日线数据（推荐）
+python get_daily_price_tushare.py
+python merge_jsonl_tushare.py
 
-# 📊 数据将保存至: data/A_stock/merged.jsonl
+# 📈 方法2：使用 Alpha Vantage API 获取日线数据（备选）
+python get_daily_price_alphavantage.py
+python merge_jsonl_alphavantage.py
+
+# 📊 日线数据将保存至: data/A_stock/merged.jsonl
+
+# ⏰ 获取60分钟K线数据（小时级交易）
+python get_interdaily_price_astock.py
+python merge_jsonl_hourly.py
+
+# 📊 小时数据将保存至: data/A_stock/merged_hourly.jsonl
 ```
 
 #### ₿ 加密货币市场数据（BITWISE10）
@@ -800,6 +816,7 @@ class CustomTool:
 - [MCP](https://github.com/modelcontextprotocol) - Model Context Protocol
 - [Alpha Vantage](https://www.alphavantage.co/) - 美股金融数据API
 - [Tushare](https://tushare.pro/) - A股市场数据API
+- [efinance](https://github.com/Micro-sheep/efinance) - A股小时级数据获取
 - [Jina AI](https://jina.ai/) - 信息搜索服务
 
 ## 👥 管理员
