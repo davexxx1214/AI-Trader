@@ -61,7 +61,7 @@ sse_50_codes = [
 def load_stock_name_mapping():
     """从 sse_50_weight.csv 加载股票代码到名称的映射"""
     current_dir = os.path.dirname(__file__)
-    csv_path = os.path.join(current_dir, "sse_50_weight.csv")
+    csv_path = os.path.join(current_dir, "A_stock_data", "sse_50_weight.csv")
     
     name_mapping = {}
     try:
