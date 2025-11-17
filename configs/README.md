@@ -13,6 +13,7 @@ This directory contains multiple configuration files for different trading scena
 | `default_config.json` | US (NASDAQ 100) | Daily | Default US stock trading configuration |
 | `astock_config.json` | CN (SSE 50) | Daily | A-share daily trading configuration |
 | `astock_hour_config.json` | CN (SSE 50) | Hourly | A-share hourly trading configuration (10:30/11:30/14:00/15:00) |
+| `default_crypto_config.json` | Crypto (BITWISE10) | Daily | Cryptocurrency trading configuration with BaseAgentCrypto |
 
 ### `default_config.json`
 
@@ -172,6 +173,35 @@ Certain configuration values can be overridden using environment variables:
 
 > 💡 **Tip**: A-share hourly trading time points: 10:30, 11:30, 14:00, 15:00 (4 time points per day)
 
+### Cryptocurrency Daily Configuration (BaseAgentCrypto)
+```json
+{
+  "agent_type": "BaseAgentCrypto",
+  "market": "crypto",
+  "date_range": {
+    "init_date": "2025-10-20",
+    "end_date": "2025-10-31"
+  },
+  "models": [
+    {
+      "name": "claude-3.7-sonnet",
+      "basemodel": "anthropic/claude-3.7-sonnet",
+      "signature": "claude-3.7-sonnet",
+      "enabled": true
+    }
+  ],
+  "agent_config": {
+    "max_steps": 30,
+    "initial_cash": 50000.0
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_crypto"
+  }
+}
+```
+
+> 💡 **Tip**: BaseAgentCrypto uses UTC 00:00 price for buy/sell operations and supports 24/7 cryptocurrency trading
+
 ### Multi-Model Configuration
 ```json
 {
@@ -240,6 +270,13 @@ Certain configuration values can be overridden using environment variables:
 - **Stock Pool**: SSE 50 by default
 - **Trading Rules**: T+1 settlement, 100-share lot size, CNY pricing
 - **Data Source**: merged_hourly.jsonl
+
+### BaseAgentCrypto (Crypto Daily)
+- **Market Support**: Cryptocurrencies only
+- **Trading Frequency**: Daily
+- **Use Case**: Specialized cryptocurrency daily trading with built-in crypto market rules
+- **Asset Pool**: BITWISE10 index by default (BTC, ETH, XRP, SOL, ADA, SUI, LINK, AVAX, LTC, DOT)
+- **Trading Rules**: 24/7 trading, USDT denominated, no lot size restrictions, uses UTC 00:00 price for buy/sell operations
 
 ## Notes
 
