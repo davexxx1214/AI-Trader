@@ -184,10 +184,12 @@ AI-Trader Bench/
 │   ├── agent/
 │   │   ├── base_agent/            # 🧠 通用AI交易代理（美股）
 │   │   │   ├── base_agent.py      # 基础代理类
+│   │   │   ├── base_agent_hour.py # 美股小时级代理类
 │   │   │   └── __init__.py
-│   │   └── base_agent_astock/     # 🇨🇳 A股专用交易代理
-│   │       ├── base_agent_astock.py  # A股代理类
-│   │       └── __init__.py
+│   │   ├── base_agent_astock/     # 🇨🇳 A股专用交易代理
+│   │   │   ├── base_agent_astock.py  # A股日线代理类
+│   │   │   ├── base_agent_astock_hour.py # A股小时级代理类
+│   │   │   └── __init__.py
 │   │   └── base_agent_crypto/     # ₿ 加密货币专用交易代理
 │   │       ├── base_agent_crypto.py # 加密货币代理类
 │   │       └── __init__.py
@@ -205,16 +207,23 @@ AI-Trader Bench/
 ├── 📊 数据系统
 │   ├── data/
 │   │   ├── daily_prices_*.json    # 📈 纳斯达克100股票价格数据
-│   │   ├── merged.jsonl           # 🔄 美股统一数据格式
+│   │   ├── merged.jsonl           # 🔄 美股日线统一数据格式
 │   │   ├── get_daily_price.py     # 📥 美股数据获取脚本
 │   │   ├── merge_jsonl.py         # 🔄 美股数据格式转换
 │   │   ├── A_stock/               # 🇨🇳 A股市场数据
-│   │   │   ├── sse_50_weight.csv          # 📋 上证50成分股
-│   │   │   ├── daily_prices_sse_50.csv    # 📈 日线价格数据（CSV）
-│   │   │   ├── merged.jsonl               # 🔄 A股统一数据格式
-│   │   │   ├── index_daily_sse_50.json    # 📊 上证50指数基准数据
-│   │   │   ├── get_daily_price_a_stock.py # 📥 A股数据获取脚本
-│   │   │   └── merge_a_stock_jsonl.py     # 🔄 A股数据格式转换
+│   │   │   ├── A_stock_data/              # 📁 A股数据存储目录
+│   │   │   │   ├── sse_50_weight.csv          # 📋 上证50成分股权重
+│   │   │   │   ├── daily_prices_sse_50.csv    # 📈 日线价格数据（CSV）
+│   │   │   │   ├── A_stock_hourly.csv         # ⏰ 60分钟K线数据（CSV）
+│   │   │   │   └── index_daily_sse_50.json    # 📊 上证50指数基准数据
+│   │   │   ├── merged.jsonl               # 🔄 A股日线统一数据格式
+│   │   │   ├── merged_hourly.jsonl        # ⏰ A股小时级统一数据格式
+│   │   │   ├── get_daily_price_tushare.py # 📥 A股日线数据获取（Tushare API）
+│   │   │   ├── get_daily_price_alphavantage.py # 📥 A股日线数据获取（Alpha Vantage API）
+│   │   │   ├── get_interdaily_price_astock.py # ⏰ A股小时级数据获取（efinance）
+│   │   │   ├── merge_jsonl_tushare.py     # 🔄 A股日线数据格式转换（Tushare）
+│   │   │   ├── merge_jsonl_alphavantage.py # 🔄 A股日线数据格式转换（Alpha Vantage）
+│   │   │   └── merge_jsonl_hourly.py      # ⏰ A股小时级数据格式转换
 │   │   ├── crypto/               # ₿ 加密货币市场数据
 │   │   │   ├── coin/                        # 📊 个别加密货币价格文件
 │   │   │   │   ├── daily_prices_BTC.json   # 比特币价格数据
@@ -269,9 +278,11 @@ AI-Trader Bench/
 #### 🤖 AI代理系统
 | 代理类型 | 模块路径 | 适用场景 | 特性 |
 |---------|---------|---------|------|
-| **BaseAgent** | `agent.base_agent` | 美股/A股通用 | 灵活的市场切换，可配置股票池 |
-| **BaseAgentAStock** | `agent.base_agent_astock` | A股专用 | 内置A股规则，上证50默认池，中文提示词 |
-| **BaseAgentCrypto** | `agent.base_agent_crypto` | 加密货币专用 | BITWISE10加密货币池，USDT计价 |
+| **BaseAgent** | `agent.base_agent.base_agent` | 美股日线交易 | 灵活的市场切换，可配置股票池 |
+| **BaseAgent_Hour** | `agent.base_agent.base_agent_hour` | 美股小时级交易 | 小时级数据支持，精细化交易时机 |
+| **BaseAgentAStock** | `agent.base_agent_astock.base_agent_astock` | A股日线交易 | 内置A股规则，上证50默认池，中文提示词 |
+| **BaseAgentAStock_Hour** | `agent.base_agent_astock.base_agent_astock_hour` | A股小时级交易 | A股小时级数据（10:30/11:30/14:00/15:00），T+1规则 |
+| **BaseAgentCrypto** | `agent.base_agent_crypto.base_agent_crypto` | 加密货币专用 | BITWISE10加密货币池，USDT计价 |
 
 **架构优势**：
 - 🔄 **清晰分离**: 美股、A股和加密货币代理独立维护，互不干扰
@@ -432,14 +443,23 @@ python merge_jsonl.py
 #### 🇨🇳 A股市场数据（上证50）
 
 ```bash
-# 📈 获取中国A股市场数据（上证50指数）
 cd data/A_stock
-python get_daily_price_a_stock.py
 
-# 🔄 转换为JSONL格式（交易系统必需）
-python merge_a_stock_jsonl.py
+# 📈 方法1：使用 Tushare API 获取日线数据（推荐）
+python get_daily_price_tushare.py
+python merge_jsonl_tushare.py
 
-# 📊 数据将保存至: data/A_stock/merged.jsonl
+# 📈 方法2：使用 Alpha Vantage API 获取日线数据（备选）
+python get_daily_price_alphavantage.py
+python merge_jsonl_alphavantage.py
+
+# 📊 日线数据将保存至: data/A_stock/merged.jsonl
+
+# ⏰ 获取60分钟K线数据（小时级交易）
+python get_interdaily_price_astock.py
+python merge_jsonl_hourly.py
+
+# 📊 小时数据将保存至: data/A_stock/merged_hourly.jsonl
 ```
 
 #### ₿ 加密货币市场数据（BITWISE10）
@@ -510,10 +530,10 @@ python main.py configs/default_crypto_config.json
 }
 ```
 
-#### 📅 A股配置示例 (使用 BaseAgentAStock)
+#### 📅 A股日线配置示例 (使用 BaseAgentAStock)
 ```json
 {
-  "agent_type": "BaseAgentAStock",  // A股专用代理
+  "agent_type": "BaseAgentAStock",  // A股日线专用代理
   "market": "cn",                   // 市场类型："cn" A股（可选，会被忽略，始终使用cn）
   "date_range": {
     "init_date": "2025-10-09",      // 回测开始日期
@@ -529,9 +549,40 @@ python main.py configs/default_crypto_config.json
   ],
   "agent_config": {
     "initial_cash": 100000.0        // 初始资金：¥100,000人民币
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_astock"  // A股日线数据路径
   }
 }
 ```
+
+#### 📅 A股小时级配置示例 (使用 BaseAgentAStock_Hour)
+```json
+{
+  "agent_type": "BaseAgentAStock_Hour",  // A股小时级专用代理
+  "market": "cn",                        // 市场类型："cn" A股（可选，会被忽略，始终使用cn）
+  "date_range": {
+    "init_date": "2025-10-09 10:30:00",  // 回测开始时间（小时级）
+    "end_date": "2025-10-31 15:00:00"    // 回测结束时间（小时级）
+  },
+  "models": [
+    {
+      "name": "claude-3.7-sonnet",
+      "basemodel": "anthropic/claude-3.7-sonnet",
+      "signature": "claude-3.7-sonnet-astock-hour",
+      "enabled": true
+    }
+  ],
+  "agent_config": {
+    "initial_cash": 100000.0        // 初始资金：¥100,000人民币
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_astock_hour"  // A股小时级数据路径
+  }
+}
+```
+
+> 💡 **提示**: A股小时级交易时间点为：10:30、11:30、14:00、15:00（每天4个时间点）
 
 #### 📅 加密货币配置示例 (使用 BaseAgentCrypto)
 ```json
@@ -636,11 +687,13 @@ bash scripts/start_ui.sh
 
 #### 📋 代理类型说明
 
-| 代理类型 | 适用市场 | 特点 |
-|---------|---------|------|
-| **BaseAgent** | 美股 / A股 / 加密货币 | • 通用交易代理<br>• 通过 `market` 参数切换市场<br>• 灵活配置股票池<br>• 支持多资产类别交易 |
-| **BaseAgentAStock** | A股专用 | • 专为A股优化的代理<br>• 内置A股交易规则（一手100股、T+1）<br>• 默认上证50股票池<br>• 人民币计价 |
-| **BaseAgentCrypto** | 加密货币专用 | • 专为加密货币优化的代理<br>• 默认BITWISE10指数成分池<br>• USDT计价<br>• 支持整周交易 |
+| 代理类型 | 适用市场 | 交易频率 | 特点 |
+|---------|---------|---------|------|
+| **BaseAgent** | 美股 | 日线 | • 通用交易代理<br>• 通过 `market` 参数切换市场<br>• 灵活配置股票池 |
+| **BaseAgent_Hour** | 美股 | 小时级 | • 美股小时级交易<br>• 更精细的交易时机控制<br>• 支持盘中交易决策 |
+| **BaseAgentAStock** | A股 | 日线 | • 专为A股日线优化<br>• 内置A股交易规则（一手100股、T+1）<br>• 默认上证50股票池<br>• 人民币计价 |
+| **BaseAgentAStock_Hour** | A股 | 小时级 | • A股小时级交易（10:30/11:30/14:00/15:00）<br>• 支持盘中4个时间点交易<br>• 继承所有A股交易规则<br>• 数据源：merged_hourly.jsonl |
+| **BaseAgentCrypto** | 加密货币 | 日线 | • 专为加密货币优化<br>• 默认BITWISE10指数成分池<br>• USDT计价<br>• 支持整周交易 |
 
 #### 🪙 加密货币交易特点
 
@@ -800,6 +853,7 @@ class CustomTool:
 - [MCP](https://github.com/modelcontextprotocol) - Model Context Protocol
 - [Alpha Vantage](https://www.alphavantage.co/) - 美股金融数据API
 - [Tushare](https://tushare.pro/) - A股市场数据API
+- [efinance](https://github.com/Micro-sheep/efinance) - A股小时级数据获取
 - [Jina AI](https://jina.ai/) - 信息搜索服务
 
 ## 👥 管理员

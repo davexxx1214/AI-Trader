@@ -2,11 +2,39 @@
     "Meta Data": {
         "1. Information": "Daily Prices (open, high, low, close) and Volumes",
         "2. Symbol": "600050.SHH",
-        "3. Last Refreshed": "2025-11-10",
+        "3. Last Refreshed": "2025-11-14",
         "4. Output Size": "Full size",
         "5. Time Zone": "US/Eastern"
     },
     "Time Series (Daily)": {
+        "2025-11-14": {
+            "1. open": "5.4400",
+            "2. high": "5.4600",
+            "3. low": "5.4200",
+            "4. close": "5.4200",
+            "5. volume": "180552570"
+        },
+        "2025-11-13": {
+            "1. open": "5.4700",
+            "2. high": "5.4900",
+            "3. low": "5.4300",
+            "4. close": "5.4500",
+            "5. volume": "280361124"
+        },
+        "2025-11-12": {
+            "1. open": "5.5100",
+            "2. high": "5.5200",
+            "3. low": "5.4600",
+            "4. close": "5.4800",
+            "5. volume": "212621365"
+        },
+        "2025-11-11": {
+            "1. open": "5.5200",
+            "2. high": "5.5300",
+            "3. low": "5.4900",
+            "4. close": "5.5000",
+            "5. volume": "162706511"
+        },
         "2025-11-10": {
             "1. open": "5.5100",
             "2. high": "5.5300",

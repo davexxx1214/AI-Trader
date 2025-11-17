@@ -175,10 +175,15 @@ AI-Trader Bench/
 │   ├── main.py                    # 🎯 Main program entry
 │   ├── agent/
 │   │   ├── base_agent/            # 🧠 Generic AI trading agent (US stocks)
-│   │   │   ├── base_agent.py      # Base agent class
+│   │   │   ├── base_agent.py      # Base agent class (daily)
+│   │   │   ├── base_agent_hour.py # Hourly trading agent (US stocks)
 │   │   │   └── __init__.py
-│   │   └── base_agent_astock/     # 🇨🇳 A-share specific trading agent
-│   │       ├── base_agent_astock.py  # A-share agent class
+│   │   ├── base_agent_astock/     # 🇨🇳 A-share specific trading agent
+│   │   │   ├── base_agent_astock.py  # A-share agent class (daily)
+│   │   │   ├── base_agent_astock_hour.py # A-share hourly trading agent
+│   │   │   └── __init__.py
+│   │   └── base_agent_crypto/     # ₿ Cryptocurrency specific trading agent
+│   │       ├── base_agent_crypto.py # Crypto agent class
 │   │       └── __init__.py
 │   └── configs/                   # ⚙️ Configuration files
 │
@@ -194,16 +199,23 @@ AI-Trader Bench/
 ├── 📊 Data System
 │   ├── data/
 │   │   ├── daily_prices_*.json    # 📈 NASDAQ 100 stock price data
-│   │   ├── merged.jsonl           # 🔄 US stocks unified data format
+│   │   ├── merged.jsonl           # 🔄 US stocks daily unified data format
 │   │   ├── get_daily_price.py     # 📥 US stocks data fetching script
 │   │   ├── merge_jsonl.py         # 🔄 US stocks data format conversion
 │   │   ├── A_stock/               # 🇨🇳 A-share market data
-│   │   │   ├── sse_50_weight.csv          # 📋 SSE 50 constituent stocks
-│   │   │   ├── daily_prices_sse_50.csv    # 📈 Daily price data (CSV)
-│   │   │   ├── merged.jsonl               # 🔄 A-share unified data format
-│   │   │   ├── index_daily_sse_50.json    # 📊 SSE 50 index benchmark data
-│   │   │   ├── get_daily_price_a_stock.py # 📥 A-share data fetching script
-│   │   │   └── merge_a_stock_jsonl.py     # 🔄 A-share data format conversion
+│   │   │   ├── A_stock_data/              # 📁 A-share data storage directory
+│   │   │   │   ├── sse_50_weight.csv          # 📋 SSE 50 constituent weights
+│   │   │   │   ├── daily_prices_sse_50.csv    # 📈 Daily price data (CSV)
+│   │   │   │   ├── A_stock_hourly.csv         # ⏰ 60-minute K-line data (CSV)
+│   │   │   │   └── index_daily_sse_50.json    # 📊 SSE 50 index benchmark data
+│   │   │   ├── merged.jsonl               # 🔄 A-share daily unified data format
+│   │   │   ├── merged_hourly.jsonl        # ⏰ A-share hourly unified data format
+│   │   │   ├── get_daily_price_tushare.py # 📥 A-share daily data fetching (Tushare API)
+│   │   │   ├── get_daily_price_alphavantage.py # 📥 A-share daily data fetching (Alpha Vantage API)
+│   │   │   ├── get_interdaily_price_astock.py # ⏰ A-share hourly data fetching (efinance)
+│   │   │   ├── merge_jsonl_tushare.py     # 🔄 A-share daily data format conversion (Tushare API)
+│   │   │   ├── merge_jsonl_alphavantage.py # 🔄 A-share daily data format conversion (Alpha Vantage API)
+│   │   │   └── merge_jsonl_hourly.py      # ⏰ A-share hourly data format conversion (efinance)
 │   │   ├── crypto/                # ₿ Cryptocurrency market data
 │   │   │   ├── coin/                        # 📊 Individual crypto price files
 │   │   │   │   ├── daily_prices_BTC.json   # Bitcoin price data
@@ -258,9 +270,11 @@ AI-Trader Bench/
 #### 🤖 AI Agent System
 | Agent Type | Module Path | Use Case | Features |
 |-----------|-------------|----------|----------|
-| **BaseAgent** | `agent.base_agent` | US/A-shares generic | Flexible market switching, configurable stock pool |
-| **BaseAgentAStock** | `agent.base_agent_astock` | A-share specific | Built-in A-share rules, SSE 50 default pool, Chinese prompts |
-| **BaseAgentCrypto** | `agent.base_agent_crypto` | Cryptocurrency specific | BITWISE10 crypto pool, USDT denominated |
+| **BaseAgent** | `agent.base_agent.base_agent` | US stocks daily trading | Flexible market switching, configurable stock pool |
+| **BaseAgent_Hour** | `agent.base_agent.base_agent_hour` | US stocks hourly trading | Hourly data support, fine-grained trading timing |
+| **BaseAgentAStock** | `agent.base_agent_astock.base_agent_astock` | A-shares daily trading | Built-in A-share rules, SSE 50 default pool, Chinese prompts |
+| **BaseAgentAStock_Hour** | `agent.base_agent_astock.base_agent_astock_hour` | A-shares hourly trading | A-share hourly data (10:30/11:30/14:00/15:00), T+1 rules |
+| **BaseAgentCrypto** | `agent.base_agent_crypto.base_agent_crypto` | Cryptocurrency trading | BITWISE10 crypto pool, USDT denominated |
 
 **Architecture Advantages**:
 - 🔄 **Clear Separation**: US, A-share, and cryptocurrency agents independently maintained without interference
@@ -421,14 +435,24 @@ python merge_jsonl.py
 #### 🇨🇳 A-Share Market Data (SSE 50)
 
 ```bash
-# 📈 Get Chinese A-share market data (SSE 50 Index)
+# 📈 Get Chinese A-share daily market data (SSE 50 Index)
 cd data/A_stock
-python get_daily_price_a_stock.py
 
-# 🔄 Convert to JSONL format (required for trading)
-python merge_a_stock_jsonl.py
+# 📈 Method 1: Get daily data using Tushare API (Recommended)
+python get_daily_price_tushare.py
+python merge_jsonl_tushare.py
 
-# 📊 Data will be saved to: data/A_stock/merged.jsonl
+# 📈 Method 2: Get daily data using Alpha Vantage API (Alternative)
+python get_daily_price_alphavantage.py
+python merge_jsonl_alphavantage.py
+
+# 📊 Daily data will be saved to: data/A_stock/merged.jsonl
+
+# ⏰ Get 60-minute K-line data (hourly trading)
+python get_interdaily_price_astock.py
+python merge_jsonl_hourly.py
+
+# 📊 Hourly data will be saved to: data/A_stock/merged_hourly.jsonl
 ```
 
 
@@ -487,10 +511,10 @@ python main.py configs/default_crypto_config.json
 }
 ```
 
-#### 📅 A-Share Configuration Example (Using BaseAgentAStock)
+#### 📅 A-Share Daily Configuration Example (Using BaseAgentAStock)
 ```json
 {
-  "agent_type": "BaseAgentAStock",  // A-share specific agent
+  "agent_type": "BaseAgentAStock",  // A-share daily specific agent
   "market": "cn",                   // Market type: "cn" A-shares (optional, will be ignored, always uses cn)
   "date_range": {
     "init_date": "2025-10-09",      // Backtest start date
@@ -506,11 +530,42 @@ python main.py configs/default_crypto_config.json
   ],
   "agent_config": {
     "initial_cash": 100000.0        // Initial capital: ¥100,000
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_astock"  // A-share daily data path
   }
 }
 ```
 
-> 💡 **Tip**: When using `BaseAgentAStock`, the `market` parameter is automatically set to `"cn"` and doesn't need to be specified manually.
+#### 📅 A-Share Hourly Configuration Example (Using BaseAgentAStock_Hour)
+```json
+{
+  "agent_type": "BaseAgentAStock_Hour",  // A-share hourly specific agent
+  "market": "cn",                        // Market type: "cn" A-shares (optional, will be ignored, always uses cn)
+  "date_range": {
+    "init_date": "2025-10-09 10:30:00",  // Backtest start time (hourly)
+    "end_date": "2025-10-31 15:00:00"    // Backtest end time (hourly)
+  },
+  "models": [
+    {
+      "name": "claude-3.7-sonnet",
+      "basemodel": "anthropic/claude-3.7-sonnet",
+      "signature": "claude-3.7-sonnet-astock-hour",
+      "enabled": true
+    }
+  ],
+  "agent_config": {
+    "initial_cash": 100000.0        // Initial capital: ¥100,000
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_astock_hour"  // A-share hourly data path
+  }
+}
+```
+
+> 💡 **Tip**: A-share hourly trading time points: 10:30, 11:30, 14:00, 15:00 (4 time points per day)
+
+> 💡 **Tip**: When using `BaseAgentAStock` or `BaseAgentAStock_Hour`, the `market` parameter is automatically set to `"cn"` and doesn't need to be specified manually.
 
 #### 📅 Cryptocurrency Configuration Example (Using BaseAgentCrypto)
 ```json
@@ -601,11 +656,13 @@ python3 -m http.server 8000
 
 #### 📋 Agent Type Details
 
-| Agent Type | Applicable Markets | Features |
-|-----------|-------------------|----------|
-| **BaseAgent** | US / A-shares | • Generic trading agent<br>• Switch markets via `market` parameter<br>• Flexible stock pool configuration |
-| **BaseAgentAStock** | A-share specific | • Optimized for A-shares<br>• Built-in A-share trading rules (100-share lots, T+1)<br>• Default SSE 50 stock pool<br>• Chinese Yuan pricing |
-| **BaseAgentCrypto** | Crypto specific | • Default BITWISE 10<br>• USDT pricing |
+| Agent Type | Applicable Markets | Trading Frequency | Features |
+|-----------|-------------------|------------------|----------|
+| **BaseAgent** | US stocks | Daily | • Generic trading agent<br>• Switch markets via `market` parameter<br>• Flexible stock pool configuration |
+| **BaseAgent_Hour** | US stocks | Hourly | • US stocks hourly trading<br>• Fine-grained trading timing control<br>• Supports intraday trading decisions |
+| **BaseAgentAStock** | A-shares | Daily | • Optimized for A-share daily trading<br>• Built-in A-share trading rules (100-share lots, T+1)<br>• Default SSE 50 stock pool<br>• Chinese Yuan pricing |
+| **BaseAgentAStock_Hour** | A-shares | Hourly | • A-share hourly trading (10:30/11:30/14:00/15:00)<br>• Supports 4 intraday time points<br>• Inherits all A-share trading rules<br>• Data source: merged_hourly.jsonl |
+| **BaseAgentCrypto** | Cryptocurrencies | Daily | • Optimized for cryptocurrencies<br>• Default BITWISE10 index pool<br>• USDT pricing<br>• Supports entire week trading |
 
 ### 📊 Data Format
 
@@ -755,6 +812,7 @@ Thanks to the following open source projects and services:
 - [MCP](https://github.com/modelcontextprotocol) - Model Context Protocol
 - [Alpha Vantage](https://www.alphavantage.co/) - US stock financial data API
 - [Tushare](https://tushare.pro/) - China A-share market data API
+- [efinance](https://github.com/Micro-sheep/efinance) - A-share hourly data acquisition
 - [Jina AI](https://jina.ai/) - Information search service
 
 ## 👥 Administrator

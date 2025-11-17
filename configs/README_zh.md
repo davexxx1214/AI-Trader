@@ -11,7 +11,8 @@
 | 配置文件 | 市场 | 交易频率 | 说明 |
 |---------|------|---------|------|
 | `default_config.json` | 美股（纳斯达克100） | 日线 | 默认美股交易配置 |
-| `astock_config.json` | A股（上证50） | 日线 | A股市场交易配置 |
+| `astock_config.json` | A股（上证50） | 日线 | A股日线交易配置 |
+| `astock_hour_config.json` | A股（上证50） | 小时级 | A股小时级交易配置（10:30/11:30/14:00/15:00） |
 
 ### `default_config.json`
 
@@ -115,7 +116,7 @@ python main.py configs/test_real_hour_config.json
 }
 ```
 
-### A股配置示例（BaseAgentAStock）
+### A股日线配置示例（BaseAgentAStock）
 ```json
 {
   "agent_type": "BaseAgentAStock",
@@ -141,6 +142,35 @@ python main.py configs/test_real_hour_config.json
   }
 }
 ```
+
+### A股小时级配置示例（BaseAgentAStock_Hour）
+```json
+{
+  "agent_type": "BaseAgentAStock_Hour",
+  "market": "cn",
+  "date_range": {
+    "init_date": "2025-10-09 10:30:00",
+    "end_date": "2025-10-31 15:00:00"
+  },
+  "models": [
+    {
+      "name": "claude-3.7-sonnet",
+      "basemodel": "anthropic/claude-3.7-sonnet",
+      "signature": "claude-3.7-sonnet-astock-hour",
+      "enabled": true
+    }
+  ],
+  "agent_config": {
+    "max_steps": 30,
+    "initial_cash": 100000.0
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_astock_hour"
+  }
+}
+```
+
+> 💡 **提示**: A股小时级交易时间点为：10:30、11:30、14:00、15:00（每天4个时间点）
 
 ### 多模型配置
 ```json
@@ -184,16 +214,32 @@ python main.py configs/test_real_hour_config.json
 
 ## 代理类型说明
 
-### BaseAgent（通用代理）
-- **市场支持**：美股或A股（通过`market`参数配置）
+### BaseAgent（美股通用代理）
+- **市场支持**：美股市场
+- **交易频率**：日线
 - **使用场景**：通用交易代理，支持灵活的市场选择
-- **股票池**：可配置（美股默认纳斯达克100，A股默认上证50）
+- **股票池**：可配置（默认纳斯达克100）
 
-### BaseAgentAStock（A股专用代理）
+### BaseAgent_Hour（美股小时级代理）
+- **市场支持**：美股市场
+- **交易频率**：小时级
+- **使用场景**：美股小时级交易，更精细的交易时机控制
+- **股票池**：可配置（默认纳斯达克100）
+
+### BaseAgentAStock（A股日线专用代理）
 - **市场支持**：仅A股市场
-- **使用场景**：专为A股优化，内置中国市场交易规则
+- **交易频率**：日线
+- **使用场景**：专为A股日线交易优化，内置中国市场交易规则
 - **股票池**：默认上证50
 - **交易规则**：T+1结算，100股为一手，人民币计价
+
+### BaseAgentAStock_Hour（A股小时级专用代理）
+- **市场支持**：仅A股市场
+- **交易频率**：小时级（10:30/11:30/14:00/15:00）
+- **使用场景**：A股小时级交易，支持盘中4个时间点交易
+- **股票池**：默认上证50
+- **交易规则**：T+1结算，100股为一手，人民币计价
+- **数据源**：merged_hourly.jsonl
 
 ## 注意事项
 
@@ -209,8 +255,10 @@ python main.py configs/test_real_hour_config.json
 
 ### 代理类型 (agent_type)
 目前支持的类型：
-- `BaseAgent`: 基础交易代理，支持美股和A股市场
-- `BaseAgentAStock`: A股专用交易代理，内置A股交易规则
+- `BaseAgent`: 美股日线交易代理
+- `BaseAgent_Hour`: 美股小时级交易代理
+- `BaseAgentAStock`: A股日线专用交易代理，内置A股交易规则
+- `BaseAgentAStock_Hour`: A股小时级专用交易代理，支持盘中4个时间点交易
 
 ### 模型配置 (models)
 每个模型需要包含以下字段：
