@@ -347,7 +347,7 @@ OPENAI_API_BASE=https://your-openai-proxy.com/v1
 OPENAI_API_KEY=your_openai_key
 
 # 📊 Data Source Configuration
-ALPHAADVANTAGE_API_KEY=your_alpha_vantage_key  # For NASDAQ 100 data
+ALPHAADVANTAGE_API_KEY=your_alpha_vantage_key  # For NASDAQ 100 and cryptocurrency data
 JINA_API_KEY=your_jina_api_key
 TUSHARE_TOKEN=your_tushare_token               # For A-share data
 
@@ -359,6 +359,8 @@ MATH_HTTP_PORT=8000
 SEARCH_HTTP_PORT=8001
 TRADE_HTTP_PORT=8002
 GETPRICE_HTTP_PORT=8003
+CRYPTO_HTTP_PORT=8005
+
 # 🧠 AI Agent Configuration
 AGENT_MAX_STEP=30             # Maximum reasoning steps
 ```
@@ -453,6 +455,21 @@ python get_interdaily_price_astock.py
 python merge_jsonl_hourly.py
 
 # 📊 Hourly data will be saved to: data/A_stock/merged_hourly.jsonl
+```
+
+#### ₿ Cryptocurrency Market Data (BITWISE10)
+
+```bash
+# 📈 Get cryptocurrency market data (BITWISE10)
+cd data/crypto
+
+# 📊 Get daily price data for major cryptocurrencies
+python get_daily_price_crypto.py
+
+# 🔄 Merge data into unified format
+python merge_crypto_jsonl.py
+
+# 📊 Crypto data will be saved to: data/crypto/crypto_merged.jsonl
 ```
 
 
@@ -578,17 +595,21 @@ python main.py configs/default_crypto_config.json
   },
   "models": [
     {
-      "name": "deepseek-v3.2",
-      "enabled": true,
-      "basemodel": "deepseek-chat",
-      "signature": "deepseek-v3.2"
+      "name": "claude-3.7-sonnet",
+      "basemodel": "anthropic/claude-3.7-sonnet",
+      "signature": "claude-3.7-sonnet",
+      "enabled": true
     }
   ],
   "agent_config": {
     "initial_cash": 50000.0        // Initial capital: 50,000 USDT
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_crypto" // crypto daily data path
   }
 }
 ```
+> 💡 **Tip**: `BaseAgentCrypto` will use the price at UTC 00:00 as the buy/sell price. The market should be set to `"crypto"`.
 
 ### 📈 Start Web Interface
 

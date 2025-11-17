@@ -355,7 +355,7 @@ OPENAI_API_BASE=https://your-openai-proxy.com/v1
 OPENAI_API_KEY=your_openai_key
 
 # 📊 数据源配置
-ALPHAADVANTAGE_API_KEY=your_alpha_vantage_key  # 用于纳斯达克100数据
+ALPHAADVANTAGE_API_KEY=your_alpha_vantage_key  # 用于纳斯达克100和加密货币数据
 JINA_API_KEY=your_jina_api_key
 TUSHARE_TOKEN=your_tushare_token               # 用于A股数据
 
@@ -367,6 +367,8 @@ MATH_HTTP_PORT=8000
 SEARCH_HTTP_PORT=8001
 TRADE_HTTP_PORT=8002
 GETPRICE_HTTP_PORT=8003
+CRYPTO_HTTP_PORT=8005
+
 # 🧠 AI代理配置
 AGENT_MAX_STEP=30             # 最大推理步数
 ```
@@ -603,9 +605,14 @@ python main.py configs/default_crypto_config.json
   ],
   "agent_config": {
     "initial_cash": 50000.0       // 初始资金：50,000 USDT
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_crypto" // 加密货币数据路径
   }
 }
 ```
+
+> 💡 **提示**: `BaseAgentCrypto` 将使用UTC 00:00的价格作为买入/卖出价格，市场应设置为 `"crypto"`。
 
 > 💡 **提示**: 使用 `BaseAgentCrypto` 时，`market` 参数会被自动设置为 `"crypto"`，无需手动指定。
 
