@@ -121,8 +121,16 @@ class BaseAgentCrypto:
 
     # Bitwise 10 crypto symbols
     BITWISE_10 = [
-        "BTC-USDT", "ETH-USDT", "SOL-USDT", "XRP-USDT", "ADA-USDT",
-        "AVAX-USDT", "DOGE-USDT", "DOT-USDT", "LINK-USDT", "MATIC-USDT"
+        "BTC-USDT",  # Bitcoin/USDT
+        "ETH-USDT",  # Ethereum/USDT
+        "XRP-USDT",  # Ripple/USDT
+        "SOL-USDT",  # Solana/USDT
+        "ADA-USDT",  # Cardano/USDT
+        "SUI-USDT",  # Sui/USDT
+        "LINK-USDT", # Chainlink/USDT
+        "AVAX-USDT", # Avalanche/USDT
+        "LTC-USDT",  # Litecoin/USDT
+        "DOT-USDT",  # Polkadot/USDT
     ]
 
     # Default crypto symbols
