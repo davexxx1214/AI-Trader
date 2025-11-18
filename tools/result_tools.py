@@ -97,8 +97,42 @@ def get_available_date_range(signature: str) -> Tuple[str, str]:
     return dates[0], dates[-1]
 
 
+def get_crypto_symbols() -> List[str]:
+    """
+    Get cryptocurrency symbols list from crypto_merged.jsonl
+
+    Returns:
+        List of cryptocurrency symbols
+    """
+    from tools.general_tools import get_config_value
+
+    base_dir = Path(__file__).resolve().parents[1]
+    crypto_merged_file = base_dir / "data" / "crypto" / "crypto_merged.jsonl"
+
+    if not crypto_merged_file.exists():
+        return []
+
+    symbols = set()
+    try:
+        with crypto_merged_file.open("r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    doc = json.loads(line)
+                    meta = doc.get("Meta Data", {})
+                    symbol = meta.get("2. Symbol")
+                    if symbol:
+                        symbols.add(symbol)
+                except Exception:
+                    continue
+        return list(symbols)
+    except Exception:
+        return []
+
+
 def get_daily_portfolio_values(
-    modelname: str, start_date: Optional[str] = None, end_date: Optional[str] = None, market: str = "us"
+    signature: str, start_date: Optional[str] = None, end_date: Optional[str] = None, market: str = "us"
 ) -> Dict[str, float]:
     """
     Get daily portfolio values
@@ -174,7 +208,12 @@ def get_daily_portfolio_values(
                 continue
 
     # Select stock symbols based on market
-    stock_symbols = all_sse_50_symbols if market == "cn" else all_nasdaq_100_symbols
+    if market == "cn":
+        stock_symbols = all_sse_50_symbols
+    elif market == "crypto":
+        stock_symbols = get_crypto_symbols()
+    else:  # us
+        stock_symbols = all_nasdaq_100_symbols
 
     # Calculate daily portfolio values
     daily_values = {}
@@ -251,13 +290,14 @@ def calculate_daily_returns(portfolio_values: Dict[str, float]) -> List[float]:
     return returns
 
 
-def calculate_sharpe_ratio(returns: List[float], risk_free_rate: float = 0.02) -> float:
+def calculate_sharpe_ratio(returns: List[float], risk_free_rate: float = 0.02, trading_days: int = 252) -> float:
     """
     Calculate Sharpe ratio
 
     Args:
         returns: List of returns
         risk_free_rate: Risk-free rate (annualized)
+        trading_days: Number of trading days per year (252 for stocks, 365 for crypto)
 
     Returns:
         Sharpe ratio
@@ -271,9 +311,9 @@ def calculate_sharpe_ratio(returns: List[float], risk_free_rate: float = 0.02) -
     mean_return = np.mean(returns_array)
     std_return = np.std(returns_array, ddof=1)
 
-    # Assume 252 trading days per year
-    annualized_return = mean_return * 252
-    annualized_volatility = std_return * np.sqrt(252)
+    # Use specified trading days per year
+    annualized_return = mean_return * trading_days
+    annualized_volatility = std_return * np.sqrt(trading_days)
 
     if annualized_volatility == 0:
         return 0.0
@@ -382,12 +422,13 @@ def calculate_annualized_return(portfolio_values: Dict[str, float]) -> float:
     return annualized_return
 
 
-def calculate_volatility(returns: List[float]) -> float:
+def calculate_volatility(returns: List[float], trading_days: int = 252) -> float:
     """
     Calculate annualized volatility
 
     Args:
         returns: List of returns
+        trading_days: Number of trading days per year (252 for stocks, 365 for crypto)
 
     Returns:
         Annualized volatility
@@ -398,8 +439,8 @@ def calculate_volatility(returns: List[float]) -> float:
     returns_array = np.array(returns)
     daily_volatility = np.std(returns_array, ddof=1)
 
-    # Annualize volatility (assuming 252 trading days)
-    annualized_volatility = daily_volatility * np.sqrt(252)
+    # Annualize volatility using specified trading days
+    annualized_volatility = daily_volatility * np.sqrt(trading_days)
 
     return annualized_volatility
 
@@ -452,7 +493,7 @@ def calculate_profit_loss_ratio(returns: List[float]) -> float:
 
 
 def calculate_all_metrics(
-    modelname: str, start_date: Optional[str] = None, end_date: Optional[str] = None, market: str = "us"
+    signature: str, start_date: Optional[str] = None, end_date: Optional[str] = None, market: str = "us"
 ) -> Dict[str, any]:
     """
     Calculate all performance metrics
@@ -494,7 +535,7 @@ def calculate_all_metrics(
             end_date = latest_date
 
     # 获取每日投资组合价值
-    portfolio_values = get_daily_portfolio_values(modelname, start_date, end_date, market)
+    portfolio_values = get_daily_portfolio_values(signature, start_date, end_date, market)
 
     if not portfolio_values:
         return {
@@ -518,12 +559,15 @@ def calculate_all_metrics(
     # Calculate daily returns
     daily_returns = calculate_daily_returns(portfolio_values)
 
+    # Set trading days based on market type
+    trading_days = 365 if market == "crypto" else 252
+
     # Calculate various metrics
-    sharpe_ratio = calculate_sharpe_ratio(daily_returns)
+    sharpe_ratio = calculate_sharpe_ratio(daily_returns, trading_days=trading_days)
     max_drawdown, drawdown_start, drawdown_end = calculate_max_drawdown(portfolio_values)
     cumulative_return = calculate_cumulative_return(portfolio_values)
     annualized_return = calculate_annualized_return(portfolio_values)
-    volatility = calculate_volatility(daily_returns)
+    volatility = calculate_volatility(daily_returns, trading_days=trading_days)
     win_rate = calculate_win_rate(daily_returns)
     profit_loss_ratio = calculate_profit_loss_ratio(daily_returns)
 
@@ -763,7 +807,7 @@ def get_latest_metrics(signature: str, output_dir: Optional[str] = None) -> Opti
 
 
 def get_metrics_history(
-    modelname: str, output_dir: Optional[str] = None, limit: Optional[int] = None
+    signature: str, output_dir: Optional[str] = None, limit: Optional[int] = None
 ) -> List[Dict[str, any]]:
     """
     Get performance metrics history
@@ -866,7 +910,7 @@ def print_metrics_summary(signature: str, output_dir: Optional[str] = None) -> N
 
 
 def calculate_and_save_metrics(
-    modelname: str,
+    signature: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     output_dir: Optional[str] = None,
