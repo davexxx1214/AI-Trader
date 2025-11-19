@@ -446,6 +446,26 @@ class DataLoader {
         return null;
     }
 
+    // Aggregate hourly time series data to daily (take end-of-day close price)
+    aggregateHourlyToDaily(hourlyTimeSeries) {
+        const dailyData = {};
+        const dates = Object.keys(hourlyTimeSeries).sort();
+        
+        for (const timestamp of dates) {
+            const dateOnly = timestamp.split(' ')[0]; // Extract date part
+            const hour = timestamp.split(' ')[1]?.split(':')[0]; // Extract hour
+            
+            // Keep the last (end of day) price for each date
+            // Assuming market closes at 15:00 (3 PM)
+            if (!dailyData[dateOnly] || hour === '15') {
+                dailyData[dateOnly] = hourlyTimeSeries[timestamp];
+            }
+        }
+        
+        console.log(`Aggregated ${dates.length} hourly data points to ${Object.keys(dailyData).length} daily data points`);
+        return dailyData;
+    }
+
     // Load SSE 50 Index data for A-shares
     async loadSSE50Data() {
         try {
@@ -480,15 +500,49 @@ class DataLoader {
     async loadQQQData() {
         try {
             console.log('Loading QQQ invesco data...');
-            const benchmarkFile = window.configLoader.getBenchmarkFile();
+            // Use market-specific benchmark file if available
+            const marketConfig = this.getMarketConfig();
+            const benchmarkFile = marketConfig ? marketConfig.benchmark_file : window.configLoader.getBenchmarkFile();
+            const benchmarkName = marketConfig ? marketConfig.benchmark_display_name : 'QQQ Invesco';
+            
+            console.log(`Loading benchmark from: ${this.baseDataPath}/${benchmarkFile}`);
             const response = await fetch(`${this.baseDataPath}/${benchmarkFile}`);
-            if (!response.ok) throw new Error('Failed to load QQQ data');
+            if (!response.ok) throw new Error(`Failed to load QQQ data: ${response.status}`);
 
             const data = await response.json();
             // Support both hourly (60min) and daily data formats
             const timeSeries = data['Time Series (60min)'] || data['Time Series (Daily)'];
 
-            return this.createBenchmarkAssetHistory('QQQ Invesco', timeSeries, 'USD');
+            if (!timeSeries) {
+                console.error('No time series data found in QQQ file');
+                return null;
+            }
+
+            console.log(`QQQ time series has ${Object.keys(timeSeries).length} data points`);
+            
+            // Detect if agents are using daily or hourly data
+            const agentNames = Object.keys(this.agentData);
+            let isAgentHourly = false;
+            if (agentNames.length > 0) {
+                const firstAgent = this.agentData[agentNames[0]];
+                if (firstAgent && firstAgent.assetHistory.length > 0) {
+                    const firstDate = firstAgent.assetHistory[0].date;
+                    isAgentHourly = firstDate.includes(':'); // Has time component
+                    console.log(`Agent data granularity detected: ${isAgentHourly ? 'Hourly' : 'Daily'}`);
+                }
+            }
+            
+            // If agents are daily but QQQ is hourly, we need to aggregate QQQ to daily
+            const qqqIsHourly = Object.keys(timeSeries)[0]?.includes(':');
+            const needsAggregation = !isAgentHourly && qqqIsHourly;
+            
+            let processedTimeSeries = timeSeries;
+            if (needsAggregation) {
+                console.log('Aggregating hourly QQQ data to daily for daily agents');
+                processedTimeSeries = this.aggregateHourlyToDaily(timeSeries);
+            }
+            
+            return this.createBenchmarkAssetHistory(benchmarkName, processedTimeSeries, 'USD');
         } catch (error) {
             console.error('Error loading QQQ data:', error);
             return null;
@@ -559,17 +613,33 @@ class DataLoader {
                 Array.from(allAgentTimestamps).sort() : 
                 dates;
 
+            // Determine if benchmark data is hourly (has time component)
+            const isHourlyBenchmark = dates.length > 0 && dates[0].includes(':');
+            console.log(`Benchmark data type: ${isHourlyBenchmark ? 'Hourly' : 'Daily'}, expandToHourly: ${expandToHourly}`);
+
             for (const timestamp of timestampsToUse) {
-                // Extract date part for daily benchmark lookup
-                const dateOnly = timestamp.split(' ')[0];
-                
                 // Skip if outside agent date range
                 if (startDate && timestamp < startDate) continue;
                 if (endDate && timestamp > endDate) continue;
 
-                // Find the benchmark price for this date
-                const price = priceMap[dateOnly];
-                if (!price) continue;
+                // Find the benchmark price
+                let price;
+                if (isHourlyBenchmark && !expandToHourly) {
+                    // Hourly benchmark data (like QQQ 60min), use exact timestamp
+                    price = priceMap[timestamp];
+                } else if (expandToHourly) {
+                    // Daily benchmark data expanded to hourly timestamps, use date part
+                    const dateOnly = timestamp.split(' ')[0];
+                    price = priceMap[dateOnly];
+                } else {
+                    // Daily benchmark data with daily timestamps
+                    price = priceMap[timestamp];
+                }
+                
+                if (!price) {
+                    // console.warn(`No price found for ${timestamp}`);
+                    continue;
+                }
 
                 if (!benchmarkStartPrice) {
                     benchmarkStartPrice = price;
