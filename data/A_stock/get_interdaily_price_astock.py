@@ -317,7 +317,7 @@ def main():
     fetcher = AStockIntradayDataFetcher(
         frequency=60,  # 60分钟K线
         stock_list_file="sse_50_weight.csv",  # 上证50权重文件
-        output_file="all_stock_60min.csv"
+        output_file="A_stock_hourly.csv"
     )
     
     # 执行数据获取（自动检测日期范围）
