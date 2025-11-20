@@ -84,6 +84,7 @@ configs/hour_config.json
 configs/test_config.json
 configs/test_day_config.json
 configs/astock.json
+configs/astock_hour.json
 configs/test_*.json
 
 # Data directories (optional - uncomment if needed)
