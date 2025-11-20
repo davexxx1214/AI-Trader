@@ -236,23 +236,29 @@ function createChart() {
             sampleData: chartData.slice(0, 3)
         });
 
+        // Detect if we have hourly data (many data points with time component)
+        const isHourlyData = sortedDates.length > 50 && sortedDates[0].includes(':');
+
         const datasetObj = {
             label: dataLoader.getAgentDisplayName(agentName),
             data: chartData,
             borderColor: color,
-            backgroundColor: isBenchmark ? 'transparent' : createGradient(ctx, color),
+            backgroundColor: isBenchmark ? 'transparent' : createGradient(ctx, color), // Keep gradient for all
             borderWidth: borderWidth,
             borderDash: borderDash,
-            tension: 0.42, // Smooth curves for financial charts
+            tension: isHourlyData ? 0.45 : 0.4, // More smoothing for dense hourly data
             pointRadius: 0,
             pointHoverRadius: 7,
             pointHoverBackgroundColor: color,
             pointHoverBorderColor: '#fff',
             pointHoverBorderWidth: 3,
-            fill: !isBenchmark, // No fill for benchmarks
+            fill: !isBenchmark, // Fill for all non-benchmark agents
+            spanGaps: true, // Draw continuous lines even with missing data points
+            segment: {
+                borderColor: color,
+            },
             agentName: agentName,
-            agentIcon: dataLoader.getAgentIcon(agentName),
-            cubicInterpolationMode: 'monotone' // Smooth, monotonic interpolation
+            agentIcon: dataLoader.getAgentIcon(agentName)
         };
 
         console.log(`[DATASET OBJECT ${index}] borderColor: ${datasetObj.borderColor}, pointHoverBackgroundColor: ${datasetObj.pointHoverBackgroundColor}`);

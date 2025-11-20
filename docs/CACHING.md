@@ -33,6 +33,8 @@ A Python script (`scripts/precompute_frontend_cache.py`) generates static JSON f
 The frontend (`assets/js/cache-manager.js`) implements smart caching with per-market storage:
 
 1. **First Load**: Fetches pre-computed cache from server for the active market
+   - Uses cache-busting headers to bypass browser HTTP cache
+   - Ensures latest version is always checked from server
 2. **Saves to localStorage**: Stores each market's cache separately (us, cn, cn_hour)
 3. **Version Checking**: Auto-invalidates when data changes (version mismatch)
 4. **Graceful Degradation**: Falls back to live calculation if cache unavailable
@@ -331,12 +333,23 @@ if agents_data:
 
 **Symptom**: Generated new cache file but browser still shows old data
 
-**Cause**: Version hash based only on file timestamps didn't change
+**Root Cause**: Browser's HTTP cache serving stale `*_cache.json` files
 
-**Solution**: Increment `CACHE_FORMAT_VERSION` in `precompute_frontend_cache.py`:
-```python
-CACHE_FORMAT_VERSION = 'v4'  # Increment this!
+**Solution**: Added cache-busting to `cache-manager.js` (lines 126-136):
+```javascript
+// Add cache-busting to prevent browser HTTP cache from serving stale files
+const timestamp = Date.now();
+const response = await fetch(`./data/${market}_cache.json?v=${timestamp}`, {
+    cache: 'no-store',
+    headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    }
+});
 ```
+
+This ensures the browser always checks the server for the latest version instead of serving cached files.
 
 #### 5. Incomplete Data for Latest Trading Day
 
@@ -797,6 +810,27 @@ To add hourly granularity to an existing daily market:
 ✅ **Anti-look-ahead protection** (never returns future prices)
 
 ## Key Fixes and Design Decisions
+
+### Browser HTTP Cache Issue (v4 Critical Fix)
+
+**Problem**: After regenerating cache files with new data, browser continued showing old cached values (e.g., SSE-50 at ¥101,529 instead of ¥99,991)
+
+**Root Cause**: The `cache-manager.js` fetch call didn't include cache-busting headers, so browser's HTTP cache served stale `*_cache.json` files without checking the server
+
+**Solution**: Added cache-busting to `loadServerCache()` method:
+```javascript
+const timestamp = Date.now();
+const response = await fetch(`./data/${market}_cache.json?v=${timestamp}`, {
+    cache: 'no-store',
+    headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    }
+});
+```
+
+**Impact**: This ensures version detection works correctly - the browser always fetches the latest cache file from server, compares versions, and updates localStorage when data changes.
 
 ### Nov 19, 2025 Data Inclusion Fix
 

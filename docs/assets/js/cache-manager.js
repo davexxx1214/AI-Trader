@@ -122,7 +122,18 @@ class CacheManager {
     async loadServerCache(market) {
         try {
             console.log(`[CacheManager] Loading server cache for ${market} market...`);
-            const response = await fetch(`./data/${market}_cache.json`);
+
+            // Add cache-busting to prevent browser HTTP cache from serving stale files
+            // This ensures we always check for the latest version from the server
+            const timestamp = Date.now();
+            const response = await fetch(`./data/${market}_cache.json?v=${timestamp}`, {
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
 
             if (!response.ok) {
                 console.warn(`[CacheManager] Server cache not found for ${market} (${response.status})`);

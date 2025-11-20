@@ -541,20 +541,48 @@ def process_benchmark_cn(market_config, agents_data=None):
             print(f"    Date filter: {start_date_filter} to {end_date_filter}")
             print(f"    Using initial value from agents: {initial_value}")
 
+        # Detect if this is hourly market by checking agent timestamps
+        is_hourly_market = False
+        all_agent_timestamps = set()
+        if agents_data:
+            for agent_name, agent_data in agents_data.items():
+                if agent_data.get('assetHistory'):
+                    first_date = agent_data['assetHistory'][0]['date']
+                    if ':' in first_date:
+                        is_hourly_market = True
+                    # Collect all agent timestamps for hourly expansion
+                    for h in agent_data['assetHistory']:
+                        all_agent_timestamps.add(h['date'])
+            print(f"    Market type: {'Hourly' if is_hourly_market else 'Daily'}")
+
         # Convert to asset history format
         asset_history = []
         dates = sorted(time_series.keys())
 
         benchmark_start_price = None
 
-        for date in dates:
+        # For hourly markets, use agent timestamps; for daily markets, use benchmark dates
+        timestamps_to_use = sorted(all_agent_timestamps) if is_hourly_market else dates
+
+        for timestamp in timestamps_to_use:
             # Apply date filtering to match agent date ranges
-            if start_date_filter and date < start_date_filter:
+            if start_date_filter and timestamp < start_date_filter:
                 continue
-            if end_date_filter and date > end_date_filter:
+            if end_date_filter and timestamp > end_date_filter:
                 continue
 
-            close_price = float(time_series[date].get('4. close') or time_series[date].get('4. sell price', 0))
+            # Find the benchmark price
+            if is_hourly_market:
+                # For hourly timestamps, extract date part and look up daily price
+                date_only = timestamp.split(' ')[0]
+                if date_only not in time_series:
+                    continue
+                close_price = float(time_series[date_only].get('4. close') or time_series[date_only].get('4. sell price', 0))
+            else:
+                # For daily timestamps, direct lookup
+                if timestamp not in time_series:
+                    continue
+                close_price = float(time_series[timestamp].get('4. close') or time_series[timestamp].get('4. sell price', 0))
 
             if benchmark_start_price is None:
                 benchmark_start_price = close_price
@@ -563,9 +591,9 @@ def process_benchmark_cn(market_config, agents_data=None):
             current_value = initial_value * (1 + benchmark_return)
 
             asset_history.append({
-                'date': date,
+                'date': timestamp,
                 'value': current_value,
-                'id': f'sse50-{date}',
+                'id': f'sse50-{timestamp}',
                 'action': None
             })
 
@@ -633,7 +661,7 @@ def generate_cache_for_market(market_id, market_config, config):
 
     # Create cache object
     # Add a manual version prefix to force cache invalidation when data structure changes
-    CACHE_FORMAT_VERSION = 'v3'  # Increment this when changing data structure (v3: added date filtering to QQQ)
+    CACHE_FORMAT_VERSION = 'v4'  # Increment this when changing data structure (v4: fixed hourly SSE-50 benchmark)
     cache = {
         'version': f"{CACHE_FORMAT_VERSION}_{version}",
         'generatedAt': datetime.now().isoformat(),
