@@ -9,13 +9,13 @@
       "name": "deepseek-chat",
       "basemodel": "deepseek-chat",
       "signature": "deepseek-chat",
-      "enabled": true
+      "enabled": false
     },
     {
       "name": "GLM-4.6",
       "basemodel": "GLM-4.6",
       "signature": "GLM-4.6",
-      "enabled": true
+      "enabled": false
     },
     {
       "name": "qwen3-max",
@@ -27,6 +27,12 @@
       "name": "gpt-4.1",
       "basemodel": "gpt-4.1",
       "signature": "gpt-4.1",
+      "enabled": false
+    },
+    {
+      "name": "gemini-3-pro-preview",
+      "basemodel": "gemini-3-pro-preview",
+      "signature": "gemini-3-pro-preview",
       "enabled": true
     }
   ],
