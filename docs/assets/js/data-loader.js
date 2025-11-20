@@ -8,6 +8,7 @@ class DataLoader {
         this.config = null;
         this.baseDataPath = './data';
         this.currentMarket = 'us'; // 'us' or 'cn'
+        this.cacheManager = new CacheManager(); // Initialize cache manager
     }
 
     // Switch market between US stocks and A-shares
@@ -682,9 +683,30 @@ class DataLoader {
         }
     }
 
-    // Load all agents data
+    // Load all agents data with caching
     async loadAllAgentsData() {
+        const startTime = performance.now();
         console.log('Starting to load all agents data...');
+
+        // Try to load from cache first
+        const cachedData = await this.cacheManager.loadCache(this.currentMarket);
+
+        if (cachedData) {
+            const loadTime = performance.now() - startTime;
+            console.log('✓ Using cached data (fast path)');
+
+            if (this.cacheManager.shouldShowPerformanceMetrics()) {
+                console.log(`%c⚡ Total data load time: ${loadTime.toFixed(2)}ms (cached)`, 'color: #00ff00; font-weight: bold');
+            }
+
+            this.agentData = cachedData;
+            return cachedData;
+        }
+
+        // Cache miss or disabled - fall back to live calculation
+        console.log('⚠ Cache miss - performing live calculation (slow path)');
+        const calcStartTime = performance.now();
+
         const agents = await this.loadAgentList();
         console.log('Found agents:', agents);
         const allData = {};
@@ -708,6 +730,21 @@ class DataLoader {
         if (benchmarkData) {
             allData[benchmarkData.name] = benchmarkData;
             console.log(`Successfully added ${benchmarkData.name} to allData`);
+        }
+
+        const calcTime = performance.now() - calcStartTime;
+        const totalTime = performance.now() - startTime;
+
+        if (this.cacheManager.shouldShowPerformanceMetrics()) {
+            console.log(`%c⏱️  Live calculation time: ${calcTime.toFixed(2)}ms`, 'color: #ffbe0b; font-weight: bold');
+            console.log(`%c⏱️  Total data load time: ${totalTime.toFixed(2)}ms (live)`, 'color: #ff006e; font-weight: bold');
+
+            // Show potential speedup if cache was enabled
+            const cacheMetrics = this.cacheManager.getPerformanceMetrics();
+            if (cacheMetrics.lastLoadTime) {
+                const speedup = (totalTime / cacheMetrics.lastLoadTime).toFixed(1);
+                console.log(`%c💡 Cache would be ${speedup}x faster!`, 'color: #8338ec; font-weight: bold');
+            }
         }
 
         return allData;
@@ -833,7 +870,17 @@ class DataLoader {
         };
         return colors[agentName] || null;
     }
+
+    // Get cache manager instance
+    getCacheManager() {
+        return this.cacheManager;
+    }
 }
 
-// Export for use in other modules
+// Export for use in other modules and expose globally
 window.DataLoader = DataLoader;
+
+// Expose cache manager globally for easy access
+if (typeof window !== 'undefined') {
+    window.cacheManager = new CacheManager();
+}

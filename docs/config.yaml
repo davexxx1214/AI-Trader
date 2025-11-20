@@ -59,30 +59,37 @@ markets:
         display_name: "Gemini 2.5 Flash"
         icon: "./figs/google.svg"
         color: "#00d4ff"
+        enabled: true
       - folder: "qwen3-max"
         display_name: "Qwen3 Max"
         icon: "./figs/qwen.svg"
         color: "#00ffcc"
+        enabled: true
       - folder: "deepseek-chat-v3.1"
         display_name: "DeepSeek Chat v3.1"
         icon: "./figs/deepseek.svg"
         color: "#ff006e"
+        enabled: true
       - folder: "gpt-5"
         display_name: "GPT-5"
         icon: "./figs/openai.svg"
         color: "#ffbe0b"
+        enabled: true
       - folder: "claude-3.7-sonnet"
         display_name: "Claude 3.7 Sonnet"
         icon: "./figs/claude-color.svg"
         color: "#8338ec"
+        enabled: true
       - folder: "MiniMax-M2"
         display_name: "MiniMax M2"
         icon: "./figs/minimax.svg"
         color: "#3a86ff"
+        enabled: true
       - folder: "glm-4.6"
         display_name: "GLM 4.6"
         icon: "./figs/zhipu-color.svg"
         color: "#6610f2"
+        enabled: true
 
   cn_hour:
     name: "A-Shares (Hourly)"
@@ -169,3 +176,9 @@ ui:
   date_formats:
     hourly: "MM/DD HH:mm"
     daily: "YYYY-MM-DD"
+
+# Cache settings
+cache:
+  enabled: true  # Enable caching for faster page loads
+  max_age_days: 7  # Maximum age of localStorage cache in days
+  show_performance_metrics: true  # Show load time comparison in console
