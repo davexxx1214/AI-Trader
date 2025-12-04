@@ -9,7 +9,7 @@
       "name": "deepseek-chat",
       "basemodel": "deepseek-chat",
       "signature": "deepseek-chat",
-      "enabled": false
+      "enabled": true
     },
     {
       "name": "GLM-4.6",
@@ -30,9 +30,9 @@
       "enabled": false
     },
     {
-      "name": "gemini-3-pro-preview",
-      "basemodel": "gemini-3-pro-preview",
-      "signature": "gemini-3-pro-preview",
+      "name": "claude-haiku-4-5",
+      "basemodel": "claude-haiku-4-5",
+      "signature": "claude-haiku-4-5",
       "enabled": true
     }
   ],
