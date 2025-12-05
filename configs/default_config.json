@@ -9,13 +9,13 @@
       "name": "deepseek-chat",
       "basemodel": "deepseek-chat",
       "signature": "deepseek-chat",
-      "enabled": true
+      "enabled": false
     },
     {
       "name": "GLM-4.6",
       "basemodel": "GLM-4.6",
       "signature": "GLM-4.6",
-      "enabled": false
+      "enabled": true
     },
     {
       "name": "qwen3-max",
@@ -27,13 +27,13 @@
       "name": "gpt-4.1",
       "basemodel": "gpt-4.1",
       "signature": "gpt-4.1",
-      "enabled": true
+      "enabled": false
     },
     {
       "name": "claude-haiku-4-5",
       "basemodel": "claude-haiku-4-5",
       "signature": "claude-haiku-4-5",
-      "enabled": true
+      "enabled": false
     }
   ],
   "agent_config": {
