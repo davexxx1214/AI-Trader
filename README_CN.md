@@ -373,9 +373,8 @@ Get-Content logs\main_*.log -Wait -Tail 50
 ### 📈 启动Web界面
 
 ```bash
-cd docs
-python3 -m http.server 8000
-# 访问 http://localhost:8000
+python -m http.server 8080 --directory data
+# 访问 http://localhost:8080
 ```
 
 
