@@ -416,8 +416,14 @@ bash scripts/main_a_stock_step3.sh  # 步骤3: 运行A股交易代理
 我们提供了便捷的一键启动和停止脚本，支持后台运行和日志查看：
 
 ```bash
-# 🚀 一键启动（MCP服务 + A股交易代理）
-bash scripts/start_all.sh
+# ⚠️ 首次使用需要添加执行权限
+chmod +x scripts/*.sh
+
+# 🚀 一键启动（支持选择市场）
+bash scripts/start_all.sh           # 默认: 美股小时级
+bash scripts/start_all.sh us        # 美股小时级
+bash scripts/start_all.sh astock    # A股
+bash scripts/start_all.sh crypto    # 加密货币
 
 # 📊 查看运行状态
 bash scripts/status.sh
@@ -434,9 +440,16 @@ bash scripts/stop_all.sh
 **脚本说明：**
 | 脚本 | 功能 |
 |------|------|
-| `scripts/start_all.sh` | 一键后台启动 MCP 服务和交易代理 |
+| `scripts/start_all.sh [market]` | 一键后台启动，支持 `us`/`astock`/`crypto` 或自定义配置路径 |
 | `scripts/stop_all.sh` | 一键停止所有服务并清理进程 |
 | `scripts/status.sh` | 查看服务运行状态和端口情况 |
+
+**市场参数：**
+| 参数 | 市场 | 默认配置文件 |
+|------|------|-------------|
+| `us` (默认) | 美股小时级 | `configs/default_hour_config.json` |
+| `astock` | A股 | `configs/astock_config.json` |
+| `crypto` | 加密货币 | `configs/default_crypto_config.json` |
 
 **日志文件位置：**
 - MCP 服务日志：`logs/mcp_service.log`
