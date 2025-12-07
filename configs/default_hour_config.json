@@ -9,9 +9,7 @@
       "name": "claude-sonnet-4-5",
       "basemodel": "claude-sonnet-4-5", 
       "signature": "claude-sonnet-4-5",
-      "enabled": true,
-      "openai_base_url": "Optional: YOUR_OPENAI_BASE_URL,you can write them in .env file",
-      "openai_api_key": "Optional: YOUR_OPENAI_API_KEY,you can write them in .env file" 
+      "enabled": true
     },
     {
       "name": "deepseek-chat-3.2",
