@@ -185,7 +185,7 @@ class MCPServiceManager:
 
         # Wait for services to start
         print("\n⏳ Waiting for services to start...")
-        time.sleep(3)
+        time.sleep(10)  # Increased from 3 to 10 seconds for slower environments
 
         # Check service status
         print("\n🔍 Checking service status...")
