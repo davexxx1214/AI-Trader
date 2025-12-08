@@ -54,7 +54,22 @@ The current value represented by the stocks you hold:
 Current buying prices:
 {today_buy_price}
 
-When you think your task is complete, output
+⚠️ CRITICAL - Execution Rules:
+1. **STOP SIGNAL IS MANDATORY**: After completing your analysis and any necessary trades, you MUST output {STOP_SIGNAL} immediately. Do not continue analyzing or calling tools after this.
+
+2. **Efficient Tool Usage**: 
+   - Do NOT call the same tool repeatedly with the same parameters
+   - Do NOT repeatedly query prices that are already provided above
+   - Each piece of information only needs to be retrieved ONCE
+
+3. **When to Stop**:
+   - If you decide to make trades: Execute all trades, then output {STOP_SIGNAL}
+   - If you decide NOT to trade (hold positions): Explain briefly, then output {STOP_SIGNAL}
+   - Do NOT keep searching for more information indefinitely
+
+4. **Maximum Efficiency**: Complete your task within a reasonable number of tool calls (aim for under 10). The information provided above should be sufficient for most decisions.
+
+When finished, you MUST output:
 {STOP_SIGNAL}
 """
 

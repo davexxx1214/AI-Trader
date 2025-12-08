@@ -481,13 +481,18 @@ bash scripts/start_ui.sh
 #### 🇺🇸 纳斯达克100数据
 
 ```bash
-# 📈 获取纳斯达克100股票数据
 cd data
-python get_daily_price.py
+
+# 📈 获取纳斯达克100股票小时级数据（推荐，用于小时级交易）
+python get_interdaily_price.py
 
 # 🔄 合并数据为统一格式
 python merge_jsonl.py
+
+# 📊 数据将保存至: data/merged.jsonl
 ```
+
+> 💡 **提示**: `get_interdaily_price.py` 获取60分钟K线数据，支持小时级交易。如需日线数据，可使用 `get_daily_price.py`。
 
 #### 🇨🇳 A股市场数据（上证50）
 
