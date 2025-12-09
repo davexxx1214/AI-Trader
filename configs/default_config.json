@@ -44,7 +44,8 @@
     "max_retries": 3,
     "base_delay": 1.0,
     "initial_cash": 10000.0,
-    "verbose": true
+    "verbose": true,
+    "recursion_limit": 300
   },
   "log_config": {
     "log_path": "./data/agent_data"

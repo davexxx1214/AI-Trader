@@ -230,6 +230,7 @@ class BaseAgent:
         max_steps: int = 10,
         max_retries: int = 3,
         base_delay: float = 0.5,
+        recursion_limit: int = 100,
         openai_base_url: Optional[str] = None,
         openai_api_key: Optional[str] = None,
         initial_cash: float = 10000.0,
@@ -276,6 +277,7 @@ class BaseAgent:
         self.max_steps = max_steps
         self.max_retries = max_retries
         self.base_delay = base_delay
+        self.recursion_limit = recursion_limit
         self.initial_cash = initial_cash
         self.init_date = init_date
         self.verbose = verbose
@@ -426,7 +428,7 @@ class BaseAgent:
             try:
                 if self.verbose:
                     print(f"🤖 Calling LLM API ({self.basemodel})...")
-                return await self.agent.ainvoke({"messages": message}, {"recursion_limit": 100})
+                return await self.agent.ainvoke({"messages": message}, {"recursion_limit": self.recursion_limit})
             except Exception as e:
                 if attempt == self.max_retries:
                     raise e

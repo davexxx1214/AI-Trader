@@ -129,6 +129,7 @@ async def _run_model_in_current_process(AgentClass, model_config, INIT_DATE, END
     max_retries = agent_config.get("max_retries", 3)
     base_delay = agent_config.get("base_delay", 0.5)
     initial_cash = agent_config.get("initial_cash", 10000.0)
+    recursion_limit = agent_config.get("recursion_limit", 100)
 
     log_path = log_config.get("log_path", "./data/agent_data")
 
@@ -143,6 +144,7 @@ async def _run_model_in_current_process(AgentClass, model_config, INIT_DATE, END
             max_steps=max_steps,
             max_retries=max_retries,
             base_delay=base_delay,
+            recursion_limit=recursion_limit,
             initial_cash=initial_cash,
             init_date=INIT_DATE
         )
