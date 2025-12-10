@@ -9,13 +9,19 @@
       "name": "claude-sonnet-4-5",
       "basemodel": "claude-sonnet-4-5", 
       "signature": "claude-sonnet-4-5",
+      "enabled": false
+    },
+    {
+      "name": "claude-opus-4-5",
+      "basemodel": "claude-opus-4-5", 
+      "signature": "claude-opus-4-5",
       "enabled": true
     },
     {
       "name": "deepseek-chat-3.2",
       "basemodel": "deepseek-chat",
       "signature": "deepseek-chat",
-      "enabled": true
+      "enabled": false
     },
     {
       "name": "qwen3-max",
@@ -33,7 +39,7 @@
       "name": "gpt-4.1",
       "basemodel": "gpt-4.1",
       "signature": "gpt-4.1",
-      "enabled": true
+      "enabled": false
     }
   ],
   "agent_config": {
