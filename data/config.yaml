@@ -16,30 +16,18 @@ markets:
     time_granularity: "hourly"  # hourly timestamps with hour component
     enabled: true
     agents:  # US market specific agents
-      - folder: "gemini-2.5-flash"
-        display_name: "Gemini 2.5 Flash"
-        icon: "./figs/google.svg"
-        color: "#00d4ff"
-      - folder: "qwen3-max"
-        display_name: "Qwen3 Max"
-        icon: "./figs/qwen.svg"
-        color: "#00ffcc"
-      - folder: "deepseek-chat-v3.1"
-        display_name: "DeepSeek Chat v3.1"
-        icon: "./figs/deepseek.svg"
-        color: "#ff006e"
-      - folder: "gpt-5"
-        display_name: "GPT-5"
-        icon: "./figs/openai.svg"
-        color: "#ffbe0b"
-      - folder: "claude-3.7-sonnet"
-        display_name: "Claude 3.7 Sonnet"
+      - folder: "claude-sonnet-4-5"
+        display_name: "Claude Sonnet 4.5"
         icon: "./figs/claude-color.svg"
         color: "#8338ec"
-      - folder: "MiniMax-M2"
-        display_name: "MiniMax M2"
-        icon: "./figs/minimax.svg"
-        color: "#3a86ff"
+      - folder: "deepseek-chat"
+        display_name: "DeepSeek Chat"
+        icon: "./figs/deepseek.svg"
+        color: "#4a90e2"
+      - folder: "gpt-4.1"
+        display_name: "GPT-4.1"
+        icon: "./figs/openai.svg"
+        color: "#10a37f"
 
   cn:
     name: "A-Shares (SSE 50)"
@@ -148,7 +136,7 @@ markets:
 
 # Data paths configuration (legacy support - will use market-specific paths when available)
 data:
-  base_path: "./data"
+  base_path: "."
   price_file_prefix: "daily_prices_"
   benchmark_file: "Adaily_prices_QQQ.json"
 
