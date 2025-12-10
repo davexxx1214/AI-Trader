@@ -483,7 +483,7 @@ bash scripts/start_ui.sh
 ```bash
 cd data
 
-# 📈 获取纳斯达克100股票小时级数据（推荐，用于小时级交易）
+# 📈 获取纳斯达克100股票小时级数据（Premium 支持跨月）
 python get_interdaily_price.py
 
 # 🔄 合并数据为统一格式
@@ -492,7 +492,13 @@ python merge_jsonl.py
 # 📊 数据将保存至: data/merged.jsonl
 ```
 
-> 💡 **提示**: `get_interdaily_price.py` 获取60分钟K线数据，支持小时级交易。如需日线数据，可使用 `get_daily_price.py`。
+说明（Premium 版跨月拉取 + 按配置截取）：
+- 脚本读取 `configs/default_hour_config.json` 的 `date_range`，按月调用 AlphaVantage `TIME_SERIES_INTRADAY`（`interval=60min`，`outputsize=full`，`month=YYYY-MM`），然后再过滤到配置的起止时间。
+- 合并旧文件时也会按时间范围过滤，避免旧数据超出配置范围；如需彻底清理，先删除 `daily_prices_*.json` / `Adaily_prices_QQQ.json` 再运行。
+- 运行目录需在 `data/` 下（脚本写入相对路径 `daily_prices_*.json`、`Adaily_prices_QQQ.json`）。
+- 我们已是 Premium 会员，可直接跨月获取历史小时级数据。
+
+> 💡 **提示**: `get_interdaily_price.py` 获取60分钟K线数据，支持小时级交易；如需日线数据，可使用 `get_daily_price.py`。
 
 #### 🇨🇳 A股市场数据（上证50）
 
@@ -673,17 +679,18 @@ python main.py configs/default_crypto_config.json
 ### 📈 启动Web界面
 
 ```bash
-cd docs
-python3 -m http.server 8000
-# 访问 http://localhost:8000
+# 静态文件已放到 data/ 下，直接从 data 目录起服务
+cd data
+python -m http.server 8080
+# 访问 http://localhost:8080
 ```
 
-或者使用启动脚本：
+或者使用启动脚本（请确保工作目录指向 data，再运行脚本或手工起服）：
 
 ```bash
 # 启动Web界面
 bash scripts/start_ui.sh
-# 访问: http://localhost:8888
+# 访问: http://localhost:8080
 ```
 
 ---

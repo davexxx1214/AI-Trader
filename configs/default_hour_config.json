@@ -9,12 +9,6 @@
       "name": "claude-sonnet-4-5",
       "basemodel": "claude-sonnet-4-5", 
       "signature": "claude-sonnet-4-5",
-      "enabled": false
-    },
-    {
-      "name": "claude-opus-4-5",
-      "basemodel": "claude-opus-4-5", 
-      "signature": "claude-opus-4-5",
       "enabled": true
     },
     {
