@@ -45,6 +45,12 @@
 
 我们很高兴宣布以下重大更新已于本周完成：
 
+### 🔴 实时交易系统（新功能）
+- ✅ **实时模拟交易** - 新增实时交易模式，在美股交易时间内每小时自动执行AI交易决策
+- ✅ **自动数据拉取** - 集成 AlphaVantage API 实时获取最新小时级数据
+- ✅ **交易日历判断** - 自动识别美股交易日和交易时间，智能跳过节假日和非交易时段
+- ✅ **一键启停脚本** - 提供 `start_live_trading.sh` 和 `stop_live_trading.sh` 便捷管理
+
 ### 📈 市场扩展
 - ✅ **A股市场支持** - 将交易能力扩展到中国A股市场，扩大全球市场覆盖范围。
 - ✅ **加密货币市场支持** - 新增支持主流加密货币交易，包括比特币、以太坊和其他8种领先数字资产。
@@ -185,6 +191,7 @@ AI-Trader Bench/
 │   │   ├── base_agent/            # 🧠 通用AI交易代理（美股）
 │   │   │   ├── base_agent.py      # 基础代理类
 │   │   │   ├── base_agent_hour.py # 美股小时级代理类
+│   │   │   ├── live_agent_hour.py # 🔴 美股实时交易代理类
 │   │   │   └── __init__.py
 │   │   ├── base_agent_astock/     # 🇨🇳 A股专用交易代理
 │   │   │   ├── base_agent_astock.py  # A股日线代理类
@@ -203,6 +210,7 @@ AI-Trader Bench/
 │   │   ├── tool_math.py           # 🧮 数学计算
 │   │   └── start_mcp_services.py  # 🚀 MCP服务启动脚本
 │   └── tools/                     # 🔧 辅助工具
+│       └── trading_calendar.py    # 📅 美股交易日历判断工具
 │
 ├── 📊 数据系统
 │   ├── data/
@@ -234,7 +242,9 @@ AI-Trader Bench/
 │   │   │   └── merge_crypto_jsonl.py       # 🔄 加密货币数据格式转换
 │   │   ├── agent_data/            # 📝 AI交易记录（纳斯达克100）
 │   │   ├── agent_data_astock/     # 📝 A股AI交易记录
-│   │   └── agent_data_crypto/     # 📝 加密货币AI交易记录
+│   │   ├── agent_data_crypto/     # 📝 加密货币AI交易记录
+│   │   ├── agent_data_live/       # 🔴 实时交易AI交易记录
+│   │   └── get_live_price.py      # 📡 实时数据获取脚本
 │   └── calculate_performance.py   # 📈 性能分析
 │
 ├── 💬 提示词系统
@@ -248,7 +258,8 @@ AI-Trader Bench/
 ├── 📋 配置与文档
 │   ├── configs/                   # ⚙️ 系统配置
 │   │   ├── default_config.json    # 美股默认配置
-│   │   └── astock_config.json     # A股配置示例
+│   │   ├── astock_config.json     # A股配置示例
+│   │   └── live_trading_config.json # 🔴 实时交易配置
 │   └── calc_perf.sh              # 🚀 性能计算脚本
 │
 └── 🚀 快速启动脚本
@@ -266,7 +277,10 @@ AI-Trader Bench/
         ├── start_all.sh           # 🚀 一键后台启动（MCP + 交易代理）
         ├── stop_all.sh            # 🛑 一键停止所有服务
         ├── status.sh              # 📊 查看服务运行状态
-        └── start_ui.sh            # 启动Web界面
+        ├── start_ui.sh            # 启动Web界面
+        ├── start_live_trading.sh  # 🔴 启动实时交易系统
+        ├── stop_live_trading.sh   # 🛑 停止实时交易系统
+        └── start_live_trading.py  # 📡 实时交易调度器
 ```
 
 ### 🔧 核心组件详解
@@ -283,6 +297,7 @@ AI-Trader Bench/
 |---------|---------|---------|------|
 | **BaseAgent** | `agent.base_agent.base_agent` | 美股日线交易 | 灵活的市场切换，可配置股票池 |
 | **BaseAgent_Hour** | `agent.base_agent.base_agent_hour` | 美股小时级交易 | 小时级数据支持，精细化交易时机 |
+| **LiveAgent_Hour** | `agent.base_agent.live_agent_hour` | 美股实时交易 | 实时数据拉取，自动交易日历判断，每小时决策 |
 | **BaseAgentAStock** | `agent.base_agent_astock.base_agent_astock` | A股日线交易 | 内置A股规则，上证50默认池，中文提示词 |
 | **BaseAgentAStock_Hour** | `agent.base_agent_astock.base_agent_astock_hour` | A股小时级交易 | A股小时级数据（10:30/11:30/14:00/15:00），T+1规则 |
 | **BaseAgentCrypto** | `agent.base_agent_crypto.base_agent_crypto` | 加密货币专用 | BITWISE10加密货币池，USDT计价 |
@@ -462,6 +477,37 @@ bash scripts/main_crypto_step1.sh  # 步骤1: 准备加密货币数据
 bash scripts/main_crypto_step2.sh  # 步骤2: 启动MCP服务
 bash scripts/main_crypto_step3.sh  # 步骤3: 运行加密货币交易代理
 ```
+
+#### 🔴 实时交易模式（美股）
+
+实时交易模式会在美股交易时间内（美东时间 9:30-16:00）每小时自动执行一次AI交易决策。
+
+```bash
+# 🚀 启动实时交易（包含 MCP 服务 + 调度器）
+bash scripts/start_live_trading.sh
+
+# 使用自定义配置
+bash scripts/start_live_trading.sh configs/my_live_config.json
+
+# 📖 查看实时交易日志
+tail -f logs/live_trader.log
+
+# 🛑 停止实时交易
+bash scripts/stop_live_trading.sh
+```
+
+**实时交易特点：**
+| 特性 | 说明 |
+|------|------|
+| ⏰ 自动调度 | 每小时整点（10:05, 11:05, ..., 16:05 ET）自动触发 |
+| 📡 实时数据 | 自动从 AlphaVantage 拉取最新小时级数据 |
+| 📅 交易日历 | 自动跳过周末和美国节假日 |
+| 🤖 多模型支持 | 支持同时运行多个AI模型，独立持仓 |
+| 📊 结果展示 | 通过 `data/portfolio.html` 查看持仓状态 |
+
+**日志文件位置：**
+- MCP 服务日志：`logs/mcp_live.log`
+- 实时交易日志：`logs/live_trader.log`
 
 #### 🌐 Web界面
 ```bash
@@ -676,6 +722,45 @@ python main.py configs/default_crypto_config.json
 
 > 💡 **提示**: 使用 `BaseAgentAStock` 时，`market` 参数会被自动设置为 `"cn"`，无需手动指定。
 
+#### 🔴 实时交易配置示例 (使用 LiveAgent_Hour)
+```json
+{
+  "agent_type": "LiveAgent_Hour",
+  "models": [
+    {
+      "name": "deepseek-chat",
+      "basemodel": "deepseek-chat",
+      "signature": "deepseek-chat-live",
+      "enabled": true
+    },
+    {
+      "name": "gpt-4.1",
+      "basemodel": "gpt-4.1",
+      "signature": "gpt-4.1-live",
+      "enabled": true
+    }
+  ],
+  "agent_config": {
+    "max_steps": 30,
+    "initial_cash": 10000.0
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_live"
+  },
+  "live_config": {
+    "timezone": "US/Eastern",
+    "market_open": "09:30",
+    "market_close": "16:00",
+    "trading_hours": [10, 11, 12, 13, 14, 15, 16],
+    "auto_fetch_data": true
+  }
+}
+```
+
+> 💡 **提示**: `LiveAgent_Hour` 不需要 `date_range` 配置，它会自动使用当前实时时间。
+
+> 💡 **提示**: 多个模型同时启用时，按配置文件中的顺序依次执行，各自拥有独立的持仓账户。
+
 ### 📈 启动Web界面
 
 ```bash
@@ -744,7 +829,7 @@ bash scripts/start_ui.sh
 
 | 参数 | 说明 | 可选值 | 默认值 |
 |------|------|--------|--------|
-| `agent_type` | AI代理类型 | "BaseAgent"（通用）<br>"BaseAgentAStock"（A股专用）<br>"BaseAgentCrypto"（加密货币专用） | "BaseAgent" |
+| `agent_type` | AI代理类型 | "BaseAgent"（通用）<br>"BaseAgent_Hour"（美股小时级）<br>"LiveAgent_Hour"（美股实时交易）<br>"BaseAgentAStock"（A股专用）<br>"BaseAgentCrypto"（加密货币专用） | "BaseAgent" |
 | `market` | 市场类型 | "us"（美股）<br>"cn"（A股）<br>"crypto"（加密货币）<br>注：使用BaseAgentAStock时自动设为"cn"，使用BaseAgentCrypto时自动设为"crypto" | "us" |
 | `max_steps` | 最大推理步数 | 正整数 | 30 |
 | `max_retries` | 最大重试次数 | 正整数 | 3 |
@@ -757,6 +842,7 @@ bash scripts/start_ui.sh
 |---------|---------|---------|------|
 | **BaseAgent** | 美股 | 日线 | • 通用交易代理<br>• 通过 `market` 参数切换市场<br>• 灵活配置股票池 |
 | **BaseAgent_Hour** | 美股 | 小时级 | • 美股小时级交易<br>• 更精细的交易时机控制<br>• 支持盘中交易决策 |
+| **LiveAgent_Hour** | 美股 | 实时小时级 | • 🔴 实时交易模式<br>• 自动拉取最新数据<br>• 内置交易日历判断<br>• 每小时自动决策 |
 | **BaseAgentAStock** | A股 | 日线 | • 专为A股日线优化<br>• 内置A股交易规则（一手100股、T+1）<br>• 默认上证50股票池<br>• 人民币计价 |
 | **BaseAgentAStock_Hour** | A股 | 小时级 | • A股小时级交易（10:30/11:30/14:00/15:00）<br>• 支持盘中4个时间点交易<br>• 继承所有A股交易规则<br>• 数据源：merged_hourly.jsonl |
 | **BaseAgentCrypto** | 加密货币 | 日线 | • 专为加密货币优化<br>• 默认BITWISE10指数成分池<br>• USDT计价<br>• 支持整周交易 |

@@ -1,0 +1,55 @@
+{
+  "agent_type": "LiveAgent_Hour",
+  "models": [
+    {
+      "name": "claude-sonnet-4-5",
+      "basemodel": "claude-sonnet-4-5",
+      "signature": "claude-sonnet-4-5-live",
+      "enabled": false
+    },
+    {
+      "name": "deepseek-chat-3.2",
+      "basemodel": "deepseek-chat",
+      "signature": "deepseek-chat-live",
+      "enabled": true
+    },
+    {
+      "name": "qwen3-max",
+      "basemodel": "qwen/qwen3-max",
+      "signature": "qwen3-max-live",
+      "enabled": false
+    },
+    {
+      "name": "gemini-2.5-flash",
+      "basemodel": "google/gemini-2.5-flash",
+      "signature": "gemini-2.5-flash-live",
+      "enabled": false
+    },
+    {
+      "name": "gpt-4.1",
+      "basemodel": "gpt-4.1",
+      "signature": "gpt-4.1-live",
+      "enabled": true
+    }
+  ],
+  "agent_config": {
+    "max_steps": 30,
+    "max_retries": 3,
+    "base_delay": 1.0,
+    "initial_cash": 10000.0,
+    "recursion_limit": 300
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_live"
+  },
+  "live_config": {
+    "timezone": "US/Eastern",
+    "market_open": "09:30",
+    "market_close": "16:00",
+    "fetch_interval_minutes": 60,
+    "trading_hours": [10, 11, 12, 13, 14, 15, 16],
+    "auto_fetch_data": true,
+    "web_ui_port": 8080
+  }
+}
+

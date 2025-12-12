@@ -6,3 +6,8 @@ fastmcp==2.12.5
 # A_stock
 tushare
 efinance
+
+# Live trading
+apscheduler>=3.10.0
+requests>=2.28.0
+python-dotenv>=1.0.0

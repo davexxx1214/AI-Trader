@@ -22,6 +22,10 @@ AGENT_REGISTRY = {
         "module": "agent.base_agent.base_agent_hour",
         "class": "BaseAgent_Hour"
     },
+    "LiveAgent_Hour": {
+        "module": "agent.base_agent.live_agent_hour",
+        "class": "LiveAgent_Hour"
+    },
     "BaseAgentAStock": {
         "module": "agent.base_agent_astock.base_agent_astock",
         "class": "BaseAgentAStock"
@@ -138,9 +142,10 @@ async def main(config_path=None):
     else:
         print(f"🌍 Market type: US stocks")
 
-    # Get date range from configuration file
-    INIT_DATE = config["date_range"]["init_date"]
-    END_DATE = config["date_range"]["end_date"]
+    # Get date range from configuration file (optional for LiveAgent_Hour)
+    date_range = config.get("date_range", {})
+    INIT_DATE = date_range.get("init_date")
+    END_DATE = date_range.get("end_date")
 
     # Environment variables can override dates in configuration file
     if os.getenv("INIT_DATE"):
@@ -149,6 +154,16 @@ async def main(config_path=None):
     if os.getenv("END_DATE"):
         END_DATE = os.getenv("END_DATE")
         print(f"⚠️  Using environment variable to override END_DATE: {END_DATE}")
+
+    # For LiveAgent_Hour, date_range is optional (uses real-time)
+    if agent_type == "LiveAgent_Hour":
+        if not INIT_DATE or not END_DATE:
+            print("📡 Live trading mode: using real-time dates")
+            INIT_DATE = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            END_DATE = INIT_DATE
+    elif not INIT_DATE or not END_DATE:
+        print("❌ date_range.init_date and date_range.end_date are required")
+        exit(1)
 
     # Validate date range
     # Support both YYYY-MM-DD and YYYY-MM-DD HH:MM:SS formats
@@ -162,7 +177,7 @@ async def main(config_path=None):
     else:
         END_DATE_obj = datetime.strptime(END_DATE, "%Y-%m-%d")
     
-    if INIT_DATE_obj > END_DATE_obj:
+    if INIT_DATE_obj > END_DATE_obj and agent_type != "LiveAgent_Hour":
         print("❌ INIT_DATE is greater than END_DATE")
         exit(1)
 
