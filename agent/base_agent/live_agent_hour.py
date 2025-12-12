@@ -47,6 +47,11 @@ class LiveAgent_Hour(BaseAgent_Hour):
         """初始化 LiveAgent_Hour"""
         super().__init__(*args, **kwargs)
         self.is_live_trading = True
+        
+        # 确保 init_date 使用当前时间（用于首次注册）
+        current_hour = get_current_trading_hour()
+        if current_hour:
+            self.init_date = current_hour
     
     def get_trading_dates(self, init_date: str, end_date: str) -> List[str]:
         """
@@ -132,6 +137,11 @@ class LiveAgent_Hour(BaseAgent_Hour):
         """
         now = get_eastern_now()
         print(f"📡 实时交易检查 - {format_eastern_time(now)}")
+        
+        # 确保 position 文件存在（首次运行时注册 Agent）
+        if not os.path.exists(self.position_file):
+            print(f"📝 首次运行，注册 Agent 并初始化仓位...")
+            self.register_agent()
         
         # 获取当前可交易的时间点
         trading_dates = self.get_trading_dates("", "")
