@@ -73,7 +73,7 @@ def fetch_latest_price(symbol: str) -> Optional[Dict[str, Any]]:
     url = "https://www.alphavantage.co/query"
     
     try:
-        response = requests.get(url, params=params, timeout=30)
+        response = requests.get(url, params=params, timeout=15)  # 减少超时时间
         response.raise_for_status()
         data = response.json()
         
@@ -89,7 +89,13 @@ def fetch_latest_price(symbol: str) -> Optional[Dict[str, Any]]:
             return None
             
         return data
-        
+    
+    except requests.exceptions.Timeout:
+        print(f"⚠️ {symbol}: 请求超时，跳过")
+        return None
+    except requests.exceptions.ConnectionError:
+        print(f"⚠️ {symbol}: 连接失败，跳过")
+        return None
     except requests.exceptions.RequestException as e:
         print(f"❌ {symbol}: 网络请求失败 - {e}")
         return None
@@ -190,7 +196,7 @@ def run_merge_jsonl() -> bool:
 
 
 def fetch_all_symbols(symbols: Optional[List[str]] = None, 
-                      delay_between_requests: float = 0.5) -> Dict[str, bool]:
+                      delay_between_requests: float = 0.8) -> Dict[str, bool]:
     """
     获取所有股票的最新数据
     
@@ -209,12 +215,14 @@ def fetch_all_symbols(symbols: Optional[List[str]] = None,
     results = {}
     total = len(symbols)
     success_count = 0
+    consecutive_failures = 0  # 连续失败计数
     
     print(f"📡 开始获取 {total} 只股票的实时数据...")
     print(f"⏰ 当前美东时间: {format_eastern_time()}")
+    print(f"💡 提示: 如果遇到 API 限制，会自动增加等待时间")
     
     for i, symbol in enumerate(symbols, 1):
-        print(f"[{i}/{total}] 获取 {symbol}...", end=" ")
+        print(f"[{i}/{total}] 获取 {symbol}...", end=" ", flush=True)
         
         data = fetch_latest_price(symbol)
         if data:
@@ -222,9 +230,17 @@ def fetch_all_symbols(symbols: Optional[List[str]] = None,
             results[symbol] = success
             if success:
                 success_count += 1
+                consecutive_failures = 0  # 重置失败计数
         else:
             results[symbol] = False
-            print(f"❌ 获取失败")
+            consecutive_failures += 1
+            
+            # 如果连续失败超过 3 次，可能是 API 限制，增加等待时间
+            if consecutive_failures >= 3:
+                wait_time = 60  # 等待 60 秒
+                print(f"⚠️ 检测到可能的 API 限制，等待 {wait_time} 秒...")
+                time.sleep(wait_time)
+                consecutive_failures = 0
         
         # 请求间隔，避免 API 限速
         if i < total:
