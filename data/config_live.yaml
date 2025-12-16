@@ -1,0 +1,69 @@
+# AI Trader Frontend Configuration - Live Trading Mode
+# This configuration file is for live trading data display
+# Data source: agent_data_live (US Stock market)
+
+# Market configurations for live trading
+markets:
+  live:
+    name: "Live Trading (US Market)"
+    subtitle: "Real-time AI trading agent performance in Nasdaq-100"
+    data_dir: "agent_data_live"
+    benchmark_file: "Adaily_prices_QQQ.json"
+    benchmark_name: "QQQ"
+    benchmark_display_name: "QQQ Invesco"
+    currency: "USD"
+    icon: "🔴"
+    price_data_type: "individual"  # individual JSON files per stock
+    time_granularity: "hourly"
+    enabled: true
+    agents:
+      - folder: "deepseek-chat-live"
+        display_name: "DeepSeek Chat (Live)"
+        icon: "./figs/deepseek.svg"
+        color: "#4a90e2"
+        enabled: true
+      - folder: "gpt-4.1-live"
+        display_name: "GPT-4.1 (Live)"
+        icon: "./figs/openai.svg"
+        color: "#10a37f"
+        enabled: true
+
+# Default market for this config
+default_market: "live"
+
+# Data paths configuration
+data:
+  base_path: "."
+  price_file_prefix: "daily_prices_"
+  benchmark_file: "Adaily_prices_QQQ.json"
+
+# Benchmark configuration
+benchmark:
+  folder: "QQQ"
+  display_name: "QQQ Invesco"
+  icon: "./figs/stock.svg"
+  color: "#ff6b00"
+  enabled: true
+
+# Chart display settings
+chart:
+  default_scale: "linear"
+  max_ticks: 15
+  point_radius: 0
+  point_hover_radius: 7
+  border_width: 3
+  tension: 0.42
+
+# UI settings
+ui:
+  initial_value: 10000
+  max_recent_trades: 20
+  date_formats:
+    hourly: "MM/DD HH:mm"
+    daily: "YYYY-MM-DD"
+
+# Cache settings
+cache:
+  enabled: false  # Disable cache for live data to ensure fresh data
+  max_age_days: 1
+  show_performance_metrics: true

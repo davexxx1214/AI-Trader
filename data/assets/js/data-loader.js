@@ -186,23 +186,43 @@ class DataLoader {
             return closePrice ? parseFloat(closePrice) : null;
         }
 
-        // For A-shares: Extract date only for daily data matching
-        // Only do this fuzzy matching if we are NOT in hourly mode or if exact match failed
-        if (this.currentMarket.startsWith('cn')) {
-            const dateOnly = dateOrTimestamp.split(' ')[0]; // "2025-10-01 10:00:00" -> "2025-10-01"
-            if (prices[dateOnly]) {
-                const closePrice = prices[dateOnly]['4. close'] || prices[dateOnly]['4. sell price'];
-                return closePrice ? parseFloat(closePrice) : null;
+        // Fuzzy matching: Extract date only for matching
+        const dateOnly = dateOrTimestamp.split(' ')[0]; // "2025-10-01 10:00:00" -> "2025-10-01"
+        
+        // Try date-only match (for daily data)
+        if (prices[dateOnly]) {
+            const closePrice = prices[dateOnly]['4. close'] || prices[dateOnly]['4. sell price'];
+            return closePrice ? parseFloat(closePrice) : null;
+        }
+
+        // Try to find the closest timestamp on the same date (for hourly data)
+        const matchingKeys = Object.keys(prices).filter(key => key.startsWith(dateOnly));
+
+        if (matchingKeys.length > 0) {
+            // Use the last (most recent) timestamp for that date
+            const lastKey = matchingKeys.sort().pop();
+            const closePrice = prices[lastKey]['4. close'] || prices[lastKey]['4. sell price'];
+            return closePrice ? parseFloat(closePrice) : null;
+        }
+
+        // For live trading: if no price found for current date, try to find most recent available price
+        // This handles the case where price data might be slightly behind trading data
+        const allDates = Object.keys(prices).sort();
+        if (allDates.length > 0) {
+            // Find the most recent date that's before or equal to requested date
+            const requestedDate = dateOnly;
+            let closestDate = null;
+            for (let i = allDates.length - 1; i >= 0; i--) {
+                const priceDate = allDates[i].split(' ')[0];
+                if (priceDate <= requestedDate) {
+                    closestDate = allDates[i];
+                    break;
+                }
             }
-
-            // If still not found, try to find the closest timestamp on the same date (for hourly data)
-            const datePrefix = dateOnly;
-            const matchingKeys = Object.keys(prices).filter(key => key.startsWith(datePrefix));
-
-            if (matchingKeys.length > 0) {
-                // Use the last (most recent) timestamp for that date
-                const lastKey = matchingKeys.sort().pop();
-                const closePrice = prices[lastKey]['4. close'] || prices[lastKey]['4. sell price'];
+            
+            if (closestDate) {
+                const closePrice = prices[closestDate]['4. close'] || prices[closestDate]['4. sell price'];
+                console.log(`[getClosingPrice] Using fallback price for ${symbol}: ${closestDate} (requested: ${dateOrTimestamp})`);
                 return closePrice ? parseFloat(closePrice) : null;
             }
         }
@@ -438,13 +458,17 @@ class DataLoader {
             return await this.loadQQQData();
         }
 
-        if (this.currentMarket === 'us') {
+        // Check benchmark_name from config to determine which benchmark to load
+        const benchmarkName = marketConfig.benchmark_name || '';
+        
+        if (this.currentMarket === 'us' || benchmarkName === 'QQQ' || this.currentMarket === 'live') {
             return await this.loadQQQData();
-        } else if (this.currentMarket.startsWith('cn')) {
+        } else if (this.currentMarket.startsWith('cn') || benchmarkName.includes('SSE')) {
             return await this.loadSSE50Data();
         }
 
-        return null;
+        // Fallback to QQQ for unknown markets
+        return await this.loadQQQData();
     }
 
     // Aggregate hourly time series data to daily (take end-of-day close price)
@@ -589,10 +613,8 @@ class DataLoader {
                             endDate = agentEndDate;
                         }
                         
-                        // Collect all timestamps if we need to expand
-                        if (expandToHourly) {
-                            agent.assetHistory.forEach(h => allAgentTimestamps.add(h.date));
-                        }
+                        // Collect all timestamps for matching with agent data
+                        agent.assetHistory.forEach(h => allAgentTimestamps.add(h.date));
                     }
                 });
             }
@@ -609,36 +631,52 @@ class DataLoader {
                 }
             }
 
-            // If expanding to hourly, use agent timestamps; otherwise use benchmark dates
-            const timestampsToUse = expandToHourly ? 
-                Array.from(allAgentTimestamps).sort() : 
-                dates;
-
             // Determine if benchmark data is hourly (has time component)
             const isHourlyBenchmark = dates.length > 0 && dates[0].includes(':');
             console.log(`Benchmark data type: ${isHourlyBenchmark ? 'Hourly' : 'Daily'}, expandToHourly: ${expandToHourly}`);
 
-            for (const timestamp of timestampsToUse) {
-                // Skip if outside agent date range
-                if (startDate && timestamp < startDate) continue;
-                if (endDate && timestamp > endDate) continue;
+            // Get the latest available benchmark price (for fallback when data is behind)
+            const latestBenchmarkDate = dates.length > 0 ? dates[dates.length - 1] : null;
+            const latestBenchmarkPrice = latestBenchmarkDate ? priceMap[latestBenchmarkDate] : null;
+            
+            console.log(`Benchmark latest date: ${latestBenchmarkDate}, Agent start date: ${startDate}`);
 
-                // Find the benchmark price
-                let price;
-                if (isHourlyBenchmark && !expandToHourly) {
-                    // Hourly benchmark data (like QQQ 60min), use exact timestamp
-                    price = priceMap[timestamp];
-                } else if (expandToHourly) {
-                    // Daily benchmark data expanded to hourly timestamps, use date part
-                    const dateOnly = timestamp.split(' ')[0];
-                    price = priceMap[dateOnly];
-                } else {
-                    // Daily benchmark data with daily timestamps
-                    price = priceMap[timestamp];
+            // Helper function to find best available price for a timestamp
+            const findBestPrice = (timestamp) => {
+                // Try exact match first
+                if (priceMap[timestamp]) return priceMap[timestamp];
+                
+                // Try date-only match for hourly timestamps
+                const dateOnly = timestamp.split(' ')[0];
+                if (priceMap[dateOnly]) return priceMap[dateOnly];
+                
+                // Try to find closest timestamp on same date
+                const matchingKeys = Object.keys(priceMap).filter(k => k.startsWith(dateOnly));
+                if (matchingKeys.length > 0) {
+                    const lastKey = matchingKeys.sort().pop();
+                    return priceMap[lastKey];
                 }
                 
+                // Find most recent available price before this timestamp
+                const sortedDates = Object.keys(priceMap).sort();
+                for (let i = sortedDates.length - 1; i >= 0; i--) {
+                    if (sortedDates[i] <= timestamp) {
+                        return priceMap[sortedDates[i]];
+                    }
+                }
+                
+                // Fallback to latest available price
+                return latestBenchmarkPrice;
+            };
+
+            // Always use agent timestamps to ensure benchmark aligns with agent data
+            const timestampsToUse = Array.from(allAgentTimestamps).sort();
+
+            for (const timestamp of timestampsToUse) {
+                // Find the benchmark price using fallback logic
+                const price = findBestPrice(timestamp);
+                
                 if (!price) {
-                    // console.warn(`No price found for ${timestamp}`);
                     continue;
                 }
 
@@ -831,13 +869,18 @@ class DataLoader {
         const icon = window.configLoader.getIcon(agentName, this.currentMarket);
         if (icon) return icon;
 
-        // Fallback to legacy icons
+        // Fallback to legacy icons (including live trading variants)
         const icons = {
             'gemini-2.5-flash': './figs/google.svg',
             'qwen3-max': './figs/qwen.svg',
             'MiniMax-M2': './figs/minimax.svg',
             'gpt-5': './figs/openai.svg',
+            'gpt-4.1': './figs/openai.svg',
+            'gpt-4.1-live': './figs/openai.svg',
             'claude-3.7-sonnet': './figs/claude-color.svg',
+            'claude-sonnet-4-5': './figs/claude-color.svg',
+            'deepseek-chat': './figs/deepseek.svg',
+            'deepseek-chat-live': './figs/deepseek.svg',
             'deepseek-chat-v3.1': './figs/deepseek.svg',
             'QQQ Invesco': './figs/stock.svg',
             'SSE 50 Index': './figs/stock.svg'

@@ -4,7 +4,28 @@
 class ConfigLoader {
     constructor() {
         this.config = null;
-        this.configPath = './config.yaml';
+        this.configPath = this._getConfigPathFromURL();
+    }
+
+    // Get config path from URL parameter or use default
+    _getConfigPathFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const configParam = urlParams.get('config');
+        if (configParam) {
+            console.log('Using config from URL parameter:', configParam);
+            return './' + configParam;
+        }
+        return './config.yaml';
+    }
+
+    // Get current config file name
+    getConfigFileName() {
+        return this.configPath.split('/').pop();
+    }
+
+    // Check if using live config
+    isLiveMode() {
+        return this.configPath.includes('config_live');
     }
 
     // Load the YAML configuration file
@@ -196,6 +217,29 @@ class ConfigLoader {
             }
         }
         return enabledMarkets;
+    }
+
+    // Get URL with config parameter preserved
+    getNavigationURL(targetPage) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const configParam = urlParams.get('config');
+        if (configParam) {
+            return `${targetPage}?config=${configParam}`;
+        }
+        return targetPage;
+    }
+
+    // Setup navigation links to preserve config parameter
+    setupNavigationLinks() {
+        const navAsset = document.getElementById('navAsset');
+        const navPortfolio = document.getElementById('navPortfolio');
+        
+        if (navAsset) {
+            navAsset.href = this.getNavigationURL('index.html');
+        }
+        if (navPortfolio) {
+            navPortfolio.href = this.getNavigationURL('portfolio.html');
+        }
     }
 }
 

@@ -1,18 +1,17 @@
 #!/bin/bash
+# AI-Trader Web UI Launcher
+# 
+# Usage:
+#   ./scripts/start_ui.sh                    # Default backtest mode
+#   ./scripts/start_ui.sh --mode live        # Live trading mode
+#   ./scripts/start_ui.sh -m live -p 9000    # Live mode on port 9000
+#
+# For dedicated scripts:
+#   ./scripts/start_ui_backtest.sh           # Backtest mode
+#   ./scripts/start_ui_live.sh               # Live trading mode
 
-# Start AI-Trader Web UI
-
-# Get the project root directory (parent of scripts/)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+cd "$SCRIPT_DIR/.."
 
-cd "$PROJECT_ROOT"
-
-echo "🌐 Starting Web UI server..."
-echo ""
-echo "Press Ctrl+C to stop the server"
-echo ""
-
-cd docs
-python3 -m http.server 8888
+python3 scripts/start_ui.py "$@"
 

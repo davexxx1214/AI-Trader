@@ -217,6 +217,8 @@ AI-Trader Bench/
 │   │   ├── daily_prices_*.json    # 📈 纳斯达克100股票价格数据
 │   │   ├── merged.jsonl           # 🔄 美股日线统一数据格式
 │   │   ├── get_daily_price.py     # 📥 美股数据获取脚本
+│   │   ├── get_interdaily_price.py # ⏰ 美股小时级数据获取
+│   │   ├── update_prices.py       # 🔄 一键增量更新价格数据
 │   │   ├── merge_jsonl.py         # 🔄 美股数据格式转换
 │   │   ├── A_stock/               # 🇨🇳 A股市场数据
 │   │   │   ├── A_stock_data/              # 📁 A股数据存储目录
@@ -277,7 +279,14 @@ AI-Trader Bench/
         ├── start_all.sh           # 🚀 一键后台启动（MCP + 交易代理）
         ├── stop_all.sh            # 🛑 一键停止所有服务
         ├── status.sh              # 📊 查看服务运行状态
-        ├── start_ui.sh            # 启动Web界面
+        ├── start_ui.py            # 🌐 Web界面启动脚本（跨平台）
+        ├── start_ui.sh            # 🌐 启动Web界面（兼容）
+        ├── start_ui_backtest.bat  # 🪟 Windows回测GUI
+        ├── start_ui_backtest.sh   # 🐧 Linux回测GUI
+        ├── start_ui_live.bat      # 🪟 Windows实时GUI
+        ├── start_ui_live.sh       # 🐧 Linux实时GUI
+        ├── update_us_prices.bat   # 🪟 Windows一键更新美股价格
+        ├── update_us_prices.sh    # 🐧 Linux一键更新美股价格
         ├── start_live_trading.sh  # 🔴 启动实时交易系统
         ├── stop_live_trading.sh   # 🛑 停止实时交易系统
         └── start_live_trading.py  # 📡 实时交易调度器
@@ -510,9 +519,24 @@ bash scripts/stop_live_trading.sh
 - 实时交易日志：`logs/live_trader.log`
 
 #### 🌐 Web界面
+
+支持 Windows 和 Linux/macOS：
+
 ```bash
-# 启动Web界面
-bash scripts/start_ui.sh
+# 方式一：使用 Python 脚本（跨平台，推荐）
+python scripts/start_ui.py                 # 默认回测模式 (agent_data)
+python scripts/start_ui.py --mode live     # 实时交易模式 (agent_data_live)
+python scripts/start_ui.py -m live -p 9000 # 指定端口
+
+# 方式二：Windows 批处理脚本
+scripts\start_ui_backtest.bat              # 回测数据 GUI
+scripts\start_ui_live.bat                  # 实时交易 GUI
+
+# 方式三：Linux/macOS Shell 脚本
+bash scripts/start_ui_backtest.sh          # 回测数据 GUI
+bash scripts/start_ui_live.sh              # 实时交易 GUI
+bash scripts/start_ui.sh                   # 兼容旧脚本，默认回测模式
+
 # 访问: http://localhost:8888
 ```
 
@@ -537,6 +561,29 @@ python merge_jsonl.py
 
 # 📊 数据将保存至: data/merged.jsonl
 ```
+
+**🔄 一键更新价格数据（推荐）：**
+
+```bash
+# 🖥️ Windows
+scripts\update_us_prices.bat
+
+# 🐧 Linux/macOS  
+bash scripts/update_us_prices.sh
+
+# 或直接使用 Python
+cd data
+python update_prices.py           # 自动检测并增量更新
+python update_prices.py --days 60 # 无数据时拉取60天
+```
+
+脚本会自动：
+1. 检测本地数据的最新时间戳
+2. 仅拉取从最新时间到现在的增量数据
+3. 如果本地无数据，默认拉取最近30天数据
+4. 自动运行 `merge_jsonl.py` 更新合并文件
+
+**手动指定日期范围：**
 
 说明（Premium 版跨月拉取 + 按配置截取）：
 - 脚本读取 `configs/default_hour_config.json` 的 `date_range`，按月调用 AlphaVantage `TIME_SERIES_INTRADAY`（`interval=60min`，`outputsize=full`，`month=YYYY-MM`），然后再过滤到配置的起止时间。
@@ -763,20 +810,30 @@ python main.py configs/default_crypto_config.json
 
 ### 📈 启动Web界面
 
-```bash
-# 静态文件已放到 data/ 下，直接从 data 目录起服务
-cd data
-python -m http.server 8080
-# 访问 http://localhost:8080
-```
-
-或者使用启动脚本（请确保工作目录指向 data，再运行脚本或手工起服）：
+我们提供了跨平台的启动脚本，支持 Windows 和 Linux/macOS：
 
 ```bash
-# 启动Web界面
-bash scripts/start_ui.sh
-# 访问: http://localhost:8080
+# 🖥️ 使用 Python 脚本（跨平台，推荐）
+python scripts/start_ui.py                 # 默认：回测数据 (agent_data)
+python scripts/start_ui.py --mode live     # 实时交易数据 (agent_data_live)
+python scripts/start_ui.py -m live -p 9000 # 自定义端口
+
+# 🪟 Windows 批处理脚本
+scripts\start_ui_backtest.bat              # 回测数据 GUI
+scripts\start_ui_live.bat                  # 实时交易 GUI
+
+# 🐧 Linux/macOS Shell 脚本
+bash scripts/start_ui_backtest.sh          # 回测数据 GUI
+bash scripts/start_ui_live.sh              # 实时交易 GUI
+
+# 访问: http://localhost:8888
 ```
+
+**两种模式说明：**
+| 模式 | 数据目录 | 用途 |
+|------|---------|------|
+| `backtest` | `data/agent_data` | 查看历史回测结果 |
+| `live` | `data/agent_data_live` | 查看实时交易数据 |
 
 ---
 

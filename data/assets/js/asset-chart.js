@@ -120,6 +120,39 @@ async function loadDataAndRefresh() {
 
 // Initialize the page
 async function init() {
+    // Load config first to determine initial market
+    await window.configLoader.loadConfig();
+    
+    // Setup navigation links to preserve config parameter
+    window.configLoader.setupNavigationLinks();
+    
+    // Check for default market in config (for live mode, etc.)
+    const defaultMarket = window.configLoader.config?.default_market;
+    const enabledMarkets = window.configLoader.getEnabledMarkets();
+    const marketKeys = Object.keys(enabledMarkets);
+    
+    console.log('[init] Default market from config:', defaultMarket);
+    console.log('[init] Enabled markets:', marketKeys);
+    
+    // If config specifies a default market and it exists, use it
+    if (defaultMarket && enabledMarkets[defaultMarket]) {
+        dataLoader.setMarket(defaultMarket);
+        console.log('[init] Using config default market:', defaultMarket);
+    } else if (marketKeys.length === 1) {
+        // If only one market is enabled, use it
+        dataLoader.setMarket(marketKeys[0]);
+        console.log('[init] Single market mode:', marketKeys[0]);
+    }
+    
+    // Hide market selector if only one market is available
+    if (marketKeys.length <= 1) {
+        const marketSelector = document.querySelector('.market-selector');
+        if (marketSelector) {
+            marketSelector.style.display = 'none';
+            console.log('[init] Hiding market selector (single market mode)');
+        }
+    }
+    
     // Set up event listeners first
     setupEventListeners();
 
