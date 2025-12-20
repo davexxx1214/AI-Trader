@@ -88,6 +88,8 @@ configs/astock_hour.json
 configs/test_*.json
 
 # Data directories (optional - uncomment if needed)
+data/agent_data_live/
+data/agent_data/
 data/agent_data/test*/
 data/agent_data/*test*/
 data/merged_daily.jsonl
