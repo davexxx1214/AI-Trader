@@ -520,13 +520,19 @@ bash scripts/stop_live_trading.sh
 
 #### 🌐 Web界面
 
-支持 Windows 和 Linux/macOS：
+支持 Windows 和 Linux/macOS，提供两种数据查看模式：
+
+| 模式 | 数据目录 | 用途 | 访问地址 |
+|------|---------|------|----------|
+| 📊 回测模式 | `data/agent_data` | 查看历史回测结果 | `http://localhost:8888` |
+| 🔴 实时模式 | `data/agent_data_live` | 查看实时交易数据 | `http://localhost:8888?config=config_live.yaml` |
 
 ```bash
 # 方式一：使用 Python 脚本（跨平台，推荐）
 python scripts/start_ui.py                 # 默认回测模式 (agent_data)
 python scripts/start_ui.py --mode live     # 实时交易模式 (agent_data_live)
 python scripts/start_ui.py -m live -p 9000 # 指定端口
+python scripts/start_ui.py --no-browser    # 不自动打开浏览器
 
 # 方式二：Windows 批处理脚本
 scripts\start_ui_backtest.bat              # 回测数据 GUI
@@ -539,6 +545,12 @@ bash scripts/start_ui.sh                   # 兼容旧脚本，默认回测模�
 
 # 访问: http://localhost:8888
 ```
+
+**界面功能：**
+- 📈 **资产曲线图** - 实时展示各AI代理的资产价值变化
+- 🏆 **排行榜** - 按收益率排名的AI代理表现
+- 💹 **交易记录** - 最近的买入/卖出操作
+- 📊 **持仓分析** - 各代理的当前持仓情况
 
 ---
 
@@ -564,24 +576,33 @@ python merge_jsonl.py
 
 **🔄 一键更新价格数据（推荐）：**
 
+智能增量更新脚本，自动检测本地数据并拉取最新价格：
+
 ```bash
-# 🖥️ Windows
+# 🖥️ Windows（推荐）
 scripts\update_us_prices.bat
 
 # 🐧 Linux/macOS  
 bash scripts/update_us_prices.sh
 
-# 或直接使用 Python
+# 或直接使用 Python（更多选项）
 cd data
-python update_prices.py           # 自动检测并增量更新
-python update_prices.py --days 60 # 无数据时拉取60天
+python update_prices.py                 # 自动检测并增量更新
+python update_prices.py --days 60       # 无数据时拉取60天
+python update_prices.py --force         # 强制重新拉取（忽略本地数据）
+python update_prices.py --force --days 7 # 强制拉取最近7天数据
 ```
 
-脚本会自动：
-1. 检测本地数据的最新时间戳
-2. 仅拉取从最新时间到现在的增量数据
-3. 如果本地无数据，默认拉取最近30天数据
-4. 自动运行 `merge_jsonl.py` 更新合并文件
+**脚本工作流程：**
+1. 🔍 扫描本地 `daily_prices_*.json` 文件，检测最新时间戳
+2. 📅 如果检测到本地数据（例如：`2025-12-05 15:00`），仅拉取从该时间到现在的增量数据
+3. ⚠️ 如果本地无数据，默认拉取最近30天的小时级数据
+4. 📥 从 AlphaVantage API 拉取纳斯达克100 + QQQ 的价格数据
+5. 🔄 自动运行 `merge_jsonl.py` 更新合并文件
+
+**注意事项：**
+- ⚠️ AlphaVantage 免费版 API 限制：25次调用/天
+- 💎 Premium 版可无限调用，支持更长时间范围
 
 **手动指定日期范围：**
 
@@ -812,11 +833,17 @@ python main.py configs/default_crypto_config.json
 
 我们提供了跨平台的启动脚本，支持 Windows 和 Linux/macOS：
 
+| 模式 | 数据目录 | 配置文件 | 用途 |
+|------|---------|---------|------|
+| 📊 `backtest` | `data/agent_data` | `config_backtest.yaml` | 查看历史回测结果（纳斯达克100、上证50、A股小时级） |
+| 🔴 `live` | `data/agent_data_live` | `config_live.yaml` | 查看美股实时交易数据 |
+
 ```bash
 # 🖥️ 使用 Python 脚本（跨平台，推荐）
 python scripts/start_ui.py                 # 默认：回测数据 (agent_data)
 python scripts/start_ui.py --mode live     # 实时交易数据 (agent_data_live)
 python scripts/start_ui.py -m live -p 9000 # 自定义端口
+python scripts/start_ui.py --no-browser    # 不自动打开浏览器
 
 # 🪟 Windows 批处理脚本
 scripts\start_ui_backtest.bat              # 回测数据 GUI
@@ -829,11 +856,14 @@ bash scripts/start_ui_live.sh              # 实时交易 GUI
 # 访问: http://localhost:8888
 ```
 
-**两种模式说明：**
-| 模式 | 数据目录 | 用途 |
-|------|---------|------|
-| `backtest` | `data/agent_data` | 查看历史回测结果 |
-| `live` | `data/agent_data_live` | 查看实时交易数据 |
+**界面功能说明：**
+| 功能 | 描述 |
+|------|------|
+| 📈 资产曲线图 | 实时展示各AI代理的资产价值变化，支持与基准（QQQ/上证50）对比 |
+| 🏆 排行榜 | 按收益率排名的AI代理表现，显示收益百分比 |
+| 💹 交易记录 | 最近的买入/卖出操作，包含时间、股票、数量信息 |
+| 📊 持仓分析 | 点击代理名称可跳转到详细持仓页面 |
+| 🔄 市场切换 | 支持在不同市场（US Daily/US Hourly/A-Shares）之间切换 |
 
 ---
 
