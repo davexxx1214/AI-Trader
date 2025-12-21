@@ -15,25 +15,25 @@
       "name": "deepseek-chat-3.2",
       "basemodel": "deepseek-chat",
       "signature": "deepseek-chat",
-      "enabled": false
+      "enabled": true
     },
     {
       "name": "qwen3-max",
       "basemodel": "qwen/qwen3-max",
       "signature": "qwen3-max",
-      "enabled": false
+      "enabled": true
     },
     {
-      "name": "gemini-2.5-flash",
-      "basemodel": "google/gemini-2.5-flash",
-      "signature": "gemini-2.5-flash",
-      "enabled": false
+      "name": "gemini-3-flash-preview",
+      "basemodel": "gemini-3-flash-preview",
+      "signature": "gemini-3-flash-preview",
+      "enabled": true
     },
     {
       "name": "gpt-4.1",
       "basemodel": "gpt-4.1",
       "signature": "gpt-4.1",
-      "enabled": false
+      "enabled": true
     }
   ],
   "agent_config": {
