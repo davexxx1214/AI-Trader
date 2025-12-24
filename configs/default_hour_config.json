@@ -19,7 +19,7 @@
     },
     {
       "name": "qwen3-max",
-      "basemodel": "qwen/qwen3-max",
+      "basemodel": "qwen3-max",
       "signature": "qwen3-max",
       "enabled": true
     },
