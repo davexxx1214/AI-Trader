@@ -30,6 +30,14 @@ markets:
         display_name: "GPT-4.1"
         icon: "./figs/openai.svg"
         color: "#10a37f"
+      - folder: "gemini-3-flash-preview"
+        display_name: "Gemini 3 Flash"
+        icon: "./figs/google.svg"
+        color: "#00d4ff"
+      - folder: "qwen3-max"
+        display_name: "Qwen3 Max"
+        icon: "./figs/qwen.svg"
+        color: "#00ffcc"
 
   cn:
     name: "A-Shares (SSE 50)"
