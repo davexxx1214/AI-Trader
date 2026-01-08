@@ -4,7 +4,7 @@
   "models": [
     {
       "name": "gemini-3-flash-preview",
-      "basemodel": "google/gemini-2.5-flash-preview",
+      "basemodel": "gemini-3-flash-preview",
       "signature": "gemini-alpaca-live",
       "enabled": true,
       "alpaca_api_key": "${ALPACA_GEMINI_API_KEY}",
