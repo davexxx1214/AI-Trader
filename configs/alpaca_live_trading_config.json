@@ -1,0 +1,46 @@
+{
+  "agent_type": "LiveAgent_Hour",
+  "description": "Alpaca Paper Trading configuration with dual accounts (gemini + deepseek)",
+  "models": [
+    {
+      "name": "gemini-3-flash-preview",
+      "basemodel": "google/gemini-2.5-flash-preview",
+      "signature": "gemini-alpaca-live",
+      "enabled": true,
+      "alpaca_api_key": "${ALPACA_GEMINI_API_KEY}",
+      "alpaca_secret_key": "${ALPACA_GEMINI_SECRET_KEY}"
+    },
+    {
+      "name": "deepseek-chat",
+      "basemodel": "deepseek-chat",
+      "signature": "deepseek-alpaca-live",
+      "enabled": true,
+      "alpaca_api_key": "${ALPACA_DEEPSEEK_API_KEY}",
+      "alpaca_secret_key": "${ALPACA_DEEPSEEK_SECRET_KEY}"
+    }
+  ],
+  "agent_config": {
+    "max_steps": 30,
+    "max_retries": 3,
+    "base_delay": 1.0,
+    "initial_cash": 10000.0,
+    "recursion_limit": 300
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_alpaca"
+  },
+  "live_config": {
+    "timezone": "US/Eastern",
+    "market_open": "09:30",
+    "market_close": "16:00",
+    "fetch_interval_minutes": 60,
+    "trading_hours": [10, 11, 12, 13, 14, 15, 16],
+    "auto_fetch_data": true,
+    "web_ui_port": 8080
+  },
+  "alpaca_config": {
+    "paper_trading": true,
+    "base_url": "https://paper-api.alpaca.markets",
+    "data_url": "https://data.alpaca.markets"
+  }
+}
