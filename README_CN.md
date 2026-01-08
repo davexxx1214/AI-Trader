@@ -51,6 +51,12 @@
 - ✅ **交易日历判断** - 自动识别美股交易日和交易时间，智能跳过节假日和非交易时段
 - ✅ **一键启停脚本** - 提供 `start_live_trading.sh` 和 `stop_live_trading.sh` 便捷管理
 
+### 🦙 Alpaca Paper Trading（新功能）
+- ✅ **真实 API 下单** - 集成 Alpaca Paper Trading API，AI 决策后执行真实模拟下单
+- ✅ **多账户支持** - 支持为每个 AI 模型配置独立的 Alpaca Paper Trading 账户
+- ✅ **双重记录** - Alpaca 真实下单 + 本地 position.jsonl 同步记录
+- ✅ **一键启停** - 提供 `start_alpaca_live_trading.sh` 和 `stop_alpaca_live_trading.sh`
+
 ### 📈 市场扩展
 - ✅ **A股市场支持** - 将交易能力扩展到中国A股市场，扩大全球市场覆盖范围。
 - ✅ **加密货币市场支持** - 新增支持主流加密货币交易，包括比特币、以太坊和其他8种领先数字资产。
@@ -205,6 +211,7 @@ AI-Trader Bench/
 ├── 🛠️ MCP工具链
 │   ├── agent_tools/
 │   │   ├── tool_trade.py          # 💰 交易执行（自动适配市场规则）
+│   │   ├── tool_alpaca_trade.py   # 🦙 Alpaca Paper Trading API 交易
 │   │   ├── tool_get_price_local.py # 📊 价格查询（支持美股+A股）
 │   │   ├── tool_jina_search.py   # 🔍 信息搜索
 │   │   ├── tool_math.py           # 🧮 数学计算
@@ -261,7 +268,8 @@ AI-Trader Bench/
 │   ├── configs/                   # ⚙️ 系统配置
 │   │   ├── default_config.json    # 美股默认配置
 │   │   ├── astock_config.json     # A股配置示例
-│   │   └── live_trading_config.json # 🔴 实时交易配置
+│   │   ├── live_trading_config.json # 🔴 实时交易配置
+│   │   └── alpaca_live_trading_config.json # 🦙 Alpaca 实时交易配置
 │   └── calc_perf.sh              # 🚀 性能计算脚本
 │
 └── 🚀 快速启动脚本
@@ -289,7 +297,10 @@ AI-Trader Bench/
         ├── update_us_prices.sh    # 🐧 Linux一键更新美股价格
         ├── start_live_trading.sh  # 🔴 启动实时交易系统
         ├── stop_live_trading.sh   # 🛑 停止实时交易系统
-        └── start_live_trading.py  # 📡 实时交易调度器
+        ├── start_live_trading.py  # 📡 实时交易调度器
+        ├── start_alpaca_live_trading.sh  # 🦙 启动 Alpaca 实时交易
+        ├── stop_alpaca_live_trading.sh   # 🛑 停止 Alpaca 实时交易
+        └── start_alpaca_live_trading.py  # 🦙 Alpaca 实时交易调度器
 ```
 
 ### 🔧 核心组件详解
@@ -320,6 +331,7 @@ AI-Trader Bench/
 | 工具 | 功能 | 市场支持 | API |
 |------|------|---------|-----|
 | **交易工具** | 买入/卖出资产，持仓管理 | 🇺🇸 美股 / 🇨🇳 A股 / ₿ 加密货币 | `buy()`, `sell()` / `buy_crypto()`, `sell_crypto()` (加密货币专用) |
+| **Alpaca 交易工具** | Alpaca Paper Trading 真实下单 | 🇺🇸 美股 | `buy()`, `sell()`, `get_alpaca_positions()`, `get_alpaca_account()` |
 | **价格工具** | 实时和历史价格查询 | 🇺🇸 美股 / 🇨🇳 A股 / ₿ 加密货币 | `get_price_local()` |
 | **搜索工具** | 市场信息搜索 | 全球市场 | `get_information()` |
 | **数学工具** | 财务计算和分析 | 通用 | 基础数学运算 |
@@ -395,6 +407,14 @@ SEARCH_HTTP_PORT=8001
 TRADE_HTTP_PORT=8002
 GETPRICE_HTTP_PORT=8003
 CRYPTO_HTTP_PORT=8005
+ALPACA_HTTP_PORT=8006
+
+# 🦙 Alpaca Paper Trading 配置
+# 获取 API 密钥：https://app.alpaca.markets/paper/dashboard/overview
+ALPACA_GEMINI_API_KEY=your_gemini_api_key      # Gemini 模型使用的账户
+ALPACA_GEMINI_SECRET_KEY=your_gemini_secret_key
+ALPACA_DEEPSEEK_API_KEY=your_deepseek_api_key  # Deepseek 模型使用的账户
+ALPACA_DEEPSEEK_SECRET_KEY=your_deepseek_secret_key
 
 # 🧠 AI代理配置
 AGENT_MAX_STEP=30             # 最大推理步数
@@ -517,6 +537,66 @@ bash scripts/stop_live_trading.sh
 **日志文件位置：**
 - MCP 服务日志：`logs/mcp_live.log`
 - 实时交易日志：`logs/live_trader.log`
+
+#### 🦙 Alpaca Paper Trading 模式（美股真实下单）
+
+Alpaca 模式会通过 Alpaca Paper Trading API 执行真实的模拟下单，让 AI 交易决策产生真实的交易记录。
+
+```bash
+# 🚀 启动 Alpaca 实时交易
+bash scripts/start_alpaca_live_trading.sh
+
+# 使用自定义配置
+bash scripts/start_alpaca_live_trading.sh configs/my_alpaca_config.json
+
+# 📖 查看 Alpaca 交易日志
+tail -f logs/alpaca_live_trader.log
+
+# 🛑 停止 Alpaca 实时交易
+bash scripts/stop_alpaca_live_trading.sh
+```
+
+**Alpaca Paper Trading 特点：**
+| 特性 | 说明 |
+|------|------|
+| 🦙 真实下单 | 通过 Alpaca Paper Trading API 执行真实模拟交易 |
+| 👥 多账户 | 每个 AI 模型可配置独立的 Alpaca 账户 |
+| 📊 双重记录 | Alpaca 真实下单 + 本地 position.jsonl 同步 |
+| 💰 账户隔离 | Gemini 和 Deepseek 模型各自独立的 $10,000 账户 |
+| ⏰ 自动调度 | 每小时整点（10:05, 11:05, ..., 16:05 ET）自动触发 |
+| 🔑 凭证验证 | 启动时自动验证 Alpaca API 凭证有效性 |
+
+**配置步骤：**
+
+1. **获取 Alpaca Paper Trading API 密钥**
+   - 访问 https://app.alpaca.markets/paper/dashboard/overview
+   - 创建 Paper Trading 账户并获取 API Key 和 Secret Key
+   - 如需多账户，需要创建多个 Alpaca 账户
+
+2. **配置 .env 文件**
+```bash
+# Alpaca Paper Trading - Gemini 账户
+ALPACA_GEMINI_API_KEY=your_gemini_api_key
+ALPACA_GEMINI_SECRET_KEY=your_gemini_secret_key
+
+# Alpaca Paper Trading - Deepseek 账户
+ALPACA_DEEPSEEK_API_KEY=your_deepseek_api_key
+ALPACA_DEEPSEEK_SECRET_KEY=your_deepseek_secret_key
+```
+
+3. **安装依赖**
+```bash
+pip install alpaca-py
+```
+
+4. **启动交易**
+```bash
+bash scripts/start_alpaca_live_trading.sh
+```
+
+**日志文件位置：**
+- Alpaca MCP 日志：`logs/alpaca_mcp.log`
+- Alpaca 交易日志：`logs/alpaca_live_trader.log`
 
 #### 🌐 Web界面
 
@@ -829,6 +909,51 @@ python main.py configs/default_crypto_config.json
 
 > 💡 **提示**: 多个模型同时启用时，按配置文件中的顺序依次执行，各自拥有独立的持仓账户。
 
+#### 🦙 Alpaca Paper Trading 配置示例
+```json
+{
+  "agent_type": "LiveAgent_Hour",
+  "description": "Alpaca Paper Trading 配置（gemini + deepseek 双账户）",
+  "models": [
+    {
+      "name": "gemini-3-flash-preview",
+      "basemodel": "google/gemini-2.5-flash-preview",
+      "signature": "gemini-alpaca-live",
+      "enabled": true,
+      "alpaca_api_key": "${ALPACA_GEMINI_API_KEY}",
+      "alpaca_secret_key": "${ALPACA_GEMINI_SECRET_KEY}"
+    },
+    {
+      "name": "deepseek-chat",
+      "basemodel": "deepseek-chat",
+      "signature": "deepseek-alpaca-live",
+      "enabled": true,
+      "alpaca_api_key": "${ALPACA_DEEPSEEK_API_KEY}",
+      "alpaca_secret_key": "${ALPACA_DEEPSEEK_SECRET_KEY}"
+    }
+  ],
+  "agent_config": {
+    "max_steps": 30,
+    "initial_cash": 10000.0
+  },
+  "log_config": {
+    "log_path": "./data/agent_data_alpaca"
+  },
+  "live_config": {
+    "timezone": "US/Eastern",
+    "trading_hours": [10, 11, 12, 13, 14, 15, 16],
+    "auto_fetch_data": true
+  },
+  "alpaca_config": {
+    "paper_trading": true
+  }
+}
+```
+
+> 💡 **提示**: 配置中的 `${VAR_NAME}` 占位符会在启动时自动从 `.env` 文件中解析。
+
+> 💡 **提示**: 每个模型可以配置独立的 Alpaca 账户，实现完全隔离的交易记录。
+
 ### 📈 启动Web界面
 
 我们提供了跨平台的启动脚本，支持 Windows 和 Linux/macOS：
@@ -916,7 +1041,7 @@ bash scripts/start_ui_live.sh              # 实时交易 GUI
 
 | 参数 | 说明 | 可选值 | 默认值 |
 |------|------|--------|--------|
-| `agent_type` | AI代理类型 | "BaseAgent"（通用）<br>"BaseAgent_Hour"（美股小时级）<br>"LiveAgent_Hour"（美股实时交易）<br>"BaseAgentAStock"（A股专用）<br>"BaseAgentCrypto"（加密货币专用） | "BaseAgent" |
+| `agent_type` | AI代理类型 | "BaseAgent"（通用）<br>"BaseAgent_Hour"（美股小时级）<br>"LiveAgent_Hour"（美股实时交易/Alpaca）<br>"BaseAgentAStock"（A股专用）<br>"BaseAgentCrypto"（加密货币专用） | "BaseAgent" |
 | `market` | 市场类型 | "us"（美股）<br>"cn"（A股）<br>"crypto"（加密货币）<br>注：使用BaseAgentAStock时自动设为"cn"，使用BaseAgentCrypto时自动设为"crypto" | "us" |
 | `max_steps` | 最大推理步数 | 正整数 | 30 |
 | `max_retries` | 最大重试次数 | 正整数 | 3 |
@@ -929,7 +1054,7 @@ bash scripts/start_ui_live.sh              # 实时交易 GUI
 |---------|---------|---------|------|
 | **BaseAgent** | 美股 | 日线 | • 通用交易代理<br>• 通过 `market` 参数切换市场<br>• 灵活配置股票池 |
 | **BaseAgent_Hour** | 美股 | 小时级 | • 美股小时级交易<br>• 更精细的交易时机控制<br>• 支持盘中交易决策 |
-| **LiveAgent_Hour** | 美股 | 实时小时级 | • 🔴 实时交易模式<br>• 自动拉取最新数据<br>• 内置交易日历判断<br>• 每小时自动决策 |
+| **LiveAgent_Hour** | 美股 | 实时小时级 | • 🔴 实时交易模式<br>• 自动拉取最新数据<br>• 内置交易日历判断<br>• 每小时自动决策<br>• 🦙 支持 Alpaca Paper Trading |
 | **BaseAgentAStock** | A股 | 日线 | • 专为A股日线优化<br>• 内置A股交易规则（一手100股、T+1）<br>• 默认上证50股票池<br>• 人民币计价 |
 | **BaseAgentAStock_Hour** | A股 | 小时级 | • A股小时级交易（10:30/11:30/14:00/15:00）<br>• 支持盘中4个时间点交易<br>• 继承所有A股交易规则<br>• 数据源：merged_hourly.jsonl |
 | **BaseAgentCrypto** | 加密货币 | 日线 | • 专为加密货币优化<br>• 默认BITWISE10指数成分池<br>• USDT计价<br>• 支持整周交易 |
@@ -1091,6 +1216,7 @@ class CustomTool:
 - [LangChain](https://github.com/langchain-ai/langchain) - AI应用开发框架
 - [MCP](https://github.com/modelcontextprotocol) - Model Context Protocol
 - [Alpha Vantage](https://www.alphavantage.co/) - 美股金融数据API
+- [Alpaca Markets](https://alpaca.markets/) - Paper Trading API
 - [Tushare](https://tushare.pro/) - A股市场数据API
 - [efinance](https://github.com/Micro-sheep/efinance) - A股小时级数据获取
 - [Jina AI](https://jina.ai/) - 信息搜索服务

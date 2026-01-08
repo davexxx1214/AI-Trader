@@ -202,7 +202,7 @@ def _init_local_positions(signature: str, initial_cash: float = 10000.0) -> bool
 
 
 @mcp.tool()
-def buy_alpaca(symbol: str, qty: int) -> Dict[str, Any]:
+def buy(symbol: str, qty: int) -> Dict[str, Any]:
     """
     Buy stock using Alpaca Paper Trading API.
     
@@ -216,7 +216,7 @@ def buy_alpaca(symbol: str, qty: int) -> Dict[str, Any]:
         Dict with order details on success, or error information on failure.
         
     Example:
-        >>> result = buy_alpaca("AAPL", 10)
+        >>> result = buy("AAPL", 10)
         >>> print(result)  # {"status": "filled", "symbol": "AAPL", "qty": 10, ...}
     """
     signature = get_config_value("SIGNATURE")
@@ -340,7 +340,7 @@ def buy_alpaca(symbol: str, qty: int) -> Dict[str, Any]:
 
 
 @mcp.tool()
-def sell_alpaca(symbol: str, qty: int) -> Dict[str, Any]:
+def sell(symbol: str, qty: int) -> Dict[str, Any]:
     """
     Sell stock using Alpaca Paper Trading API.
     
@@ -354,7 +354,7 @@ def sell_alpaca(symbol: str, qty: int) -> Dict[str, Any]:
         Dict with order details on success, or error information on failure.
         
     Example:
-        >>> result = sell_alpaca("AAPL", 5)
+        >>> result = sell("AAPL", 5)
         >>> print(result)  # {"status": "filled", "symbol": "AAPL", "qty": 5, ...}
     """
     signature = get_config_value("SIGNATURE")

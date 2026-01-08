@@ -224,6 +224,32 @@ async def fetch_live_data() -> bool:
         return False
 
 
+def get_alpaca_mcp_config() -> dict:
+    """
+    获取 Alpaca 交易专用的 MCP 配置
+    将 trade 服务指向 Alpaca MCP 端口
+    """
+    return {
+        "math": {
+            "transport": "streamable_http",
+            "url": f"http://localhost:{os.getenv('MATH_HTTP_PORT', '8000')}/mcp",
+        },
+        "stock_local": {
+            "transport": "streamable_http",
+            "url": f"http://localhost:{os.getenv('GETPRICE_HTTP_PORT', '8003')}/mcp",
+        },
+        "search": {
+            "transport": "streamable_http",
+            "url": f"http://localhost:{os.getenv('SEARCH_HTTP_PORT', '8001')}/mcp",
+        },
+        # 关键：使用 Alpaca 交易服务而不是默认的模拟交易服务
+        "trade": {
+            "transport": "streamable_http",
+            "url": f"http://localhost:{os.getenv('ALPACA_HTTP_PORT', '8006')}/mcp",
+        },
+    }
+
+
 async def run_trading_decision(config: dict) -> bool:
     """
     执行交易决策
@@ -271,6 +297,7 @@ async def run_trading_decision(config: dict) -> bool:
         
         print(f"\n{'='*50}")
         print(f"🤖 使用模型: {model_name} ({signature})")
+        print(f"🦙 使用 Alpaca Paper Trading API")
         print(f"{'='*50}")
         
         # 设置运行时配置（包括 Alpaca 凭证）
@@ -283,7 +310,7 @@ async def run_trading_decision(config: dict) -> bool:
         write_config_value("INITIAL_CASH", agent_config.get("initial_cash", 10000.0))
         
         try:
-            # 创建 Agent 实例
+            # 创建 Agent 实例，使用 Alpaca MCP 配置
             agent = LiveAgent_Hour(
                 signature=signature,
                 basemodel=basemodel,
@@ -296,6 +323,7 @@ async def run_trading_decision(config: dict) -> bool:
                 init_date=get_eastern_now().strftime("%Y-%m-%d %H:00:00"),
                 openai_base_url=openai_base_url,
                 openai_api_key=openai_api_key,
+                mcp_config=get_alpaca_mcp_config(),  # 使用 Alpaca MCP 配置
             )
             
             # 初始化
