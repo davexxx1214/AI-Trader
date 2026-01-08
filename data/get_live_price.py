@@ -9,14 +9,45 @@ import os
 import json
 import sys
 import subprocess
+import signal
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
+from contextlib import contextmanager
 
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+class TimeoutError(Exception):
+    """请求超时异常"""
+    pass
+
+
+@contextmanager
+def timeout_handler(seconds: int, symbol: str):
+    """
+    上下文管理器：为操作设置硬超时限制（仅 Unix 系统有效）
+    Windows 系统会跳过超时检查
+    """
+    def timeout_signal_handler(signum, frame):
+        raise TimeoutError(f"{symbol}: 操作超时 ({seconds}秒)")
+    
+    # Windows 不支持 SIGALRM，跳过超时设置
+    if sys.platform == 'win32':
+        yield
+        return
+    
+    # Unix 系统设置超时
+    old_handler = signal.signal(signal.SIGALRM, timeout_signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 # 将项目根目录加入 Python 路径
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -73,7 +104,8 @@ def fetch_latest_price(symbol: str) -> Optional[Dict[str, Any]]:
     url = "https://www.alphavantage.co/query"
     
     try:
-        response = requests.get(url, params=params, timeout=15)  # 减少超时时间
+        # 使用 tuple 形式设置连接超时和读取超时，防止卡住
+        response = requests.get(url, params=params, timeout=(5, 15))
         response.raise_for_status()
         data = response.json()
         
@@ -101,6 +133,9 @@ def fetch_latest_price(symbol: str) -> Optional[Dict[str, Any]]:
         return None
     except json.JSONDecodeError as e:
         print(f"❌ {symbol}: JSON 解析失败 - {e}")
+        return None
+    except Exception as e:
+        print(f"❌ {symbol}: 未知错误 - {e}")
         return None
 
 
@@ -223,24 +258,41 @@ def fetch_all_symbols(symbols: Optional[List[str]] = None,
     
     for i, symbol in enumerate(symbols, 1):
         print(f"[{i}/{total}] 获取 {symbol}...", end=" ", flush=True)
+        sys.stdout.flush()  # 强制刷新输出
         
-        data = fetch_latest_price(symbol)
-        if data:
-            success = update_local_file(symbol, data)
-            results[symbol] = success
-            if success:
-                success_count += 1
-                consecutive_failures = 0  # 重置失败计数
-        else:
+        try:
+            # 为每个股票设置 30 秒硬超时限制
+            with timeout_handler(30, symbol):
+                data = fetch_latest_price(symbol)
+                if data:
+                    success = update_local_file(symbol, data)
+                    results[symbol] = success
+                    if success:
+                        success_count += 1
+                        consecutive_failures = 0  # 重置失败计数
+                else:
+                    print(f"⚠️ 无数据")  # 确保有输出
+                    sys.stdout.flush()
+                    results[symbol] = False
+                    consecutive_failures += 1
+        except TimeoutError as e:
+            print(f"⚠️ {e}")
+            sys.stdout.flush()
             results[symbol] = False
             consecutive_failures += 1
-            
-            # 如果连续失败超过 3 次，可能是 API 限制，增加等待时间
-            if consecutive_failures >= 3:
-                wait_time = 60  # 等待 60 秒
-                print(f"⚠️ 检测到可能的 API 限制，等待 {wait_time} 秒...")
-                time.sleep(wait_time)
-                consecutive_failures = 0
+        except Exception as e:
+            print(f"❌ 异常: {e}")
+            sys.stdout.flush()
+            results[symbol] = False
+            consecutive_failures += 1
+        
+        # 如果连续失败超过 3 次，可能是 API 限制，增加等待时间
+        if consecutive_failures >= 3:
+            wait_time = 60  # 等待 60 秒
+            print(f"⚠️ 检测到可能的 API 限制，等待 {wait_time} 秒...")
+            sys.stdout.flush()
+            time.sleep(wait_time)
+            consecutive_failures = 0
         
         # 请求间隔，避免 API 限速
         if i < total:
