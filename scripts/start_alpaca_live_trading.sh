@@ -94,7 +94,7 @@ fi
 # 启动实时交易系统
 echo -e "${BLUE}🚀 启动 Alpaca 实时交易系统...${NC}"
 
-nohup $PYTHON_CMD scripts/start_alpaca_live_trading.py "$CONFIG_PATH" \
+nohup $PYTHON_CMD -u scripts/start_alpaca_live_trading.py "$CONFIG_PATH" \
     > logs/alpaca_live_trader.log 2>&1 &
 
 PID=$!

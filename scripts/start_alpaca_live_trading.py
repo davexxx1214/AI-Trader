@@ -214,6 +214,28 @@ def fetch_alpaca_account_snapshot(api_key: str, secret_key: str) -> Optional[dic
         return None
 
 
+def print_alpaca_account_snapshot(snapshot: dict) -> float:
+    """
+    打印 Alpaca 账户余额与持仓，返回现金余额
+    """
+    account = snapshot["account"]
+    positions = snapshot["positions"]
+    cash = float(getattr(account, "cash", 0.0))
+    portfolio_value = float(getattr(account, "portfolio_value", cash))
+    print(f"💰 账户余额: ${cash:,.2f} | 账户总值: ${portfolio_value:,.2f}")
+    if positions:
+        print(f"📦 当前持仓数量: {len(positions)}")
+        for pos in positions:
+            symbol = getattr(pos, "symbol", "UNKNOWN")
+            qty = getattr(pos, "qty", "0")
+            market_value = getattr(pos, "market_value", "0")
+            unrealized_pl = getattr(pos, "unrealized_pl", "0")
+            print(f"  - {symbol}: {qty} 股, 市值 ${market_value}, 浮盈亏 ${unrealized_pl}")
+    else:
+        print("📦 当前无持仓")
+    return cash
+
+
 async def fetch_live_data() -> bool:
     """
     获取实时数据
@@ -329,21 +351,7 @@ async def run_trading_decision(config: dict) -> bool:
         # 拉取账户实时余额和持仓，用于初始化资金
         snapshot = fetch_alpaca_account_snapshot(alpaca_api_key, alpaca_secret_key)
         if snapshot:
-            account = snapshot["account"]
-            positions = snapshot["positions"]
-            cash = float(getattr(account, "cash", 0.0))
-            portfolio_value = float(getattr(account, "portfolio_value", cash))
-            print(f"💰 账户余额: ${cash:,.2f} | 账户总值: ${portfolio_value:,.2f}")
-            if positions:
-                print(f"📦 当前持仓数量: {len(positions)}")
-                for pos in positions:
-                    symbol = getattr(pos, "symbol", "UNKNOWN")
-                    qty = getattr(pos, "qty", "0")
-                    market_value = getattr(pos, "market_value", "0")
-                    unrealized_pl = getattr(pos, "unrealized_pl", "0")
-                    print(f"  - {symbol}: {qty} 股, 市值 ${market_value}, 浮盈亏 ${unrealized_pl}")
-            else:
-                print("📦 当前无持仓")
+            cash = print_alpaca_account_snapshot(snapshot)
             write_config_value("INITIAL_CASH", cash)
         else:
             fallback_cash = agent_config.get("initial_cash", 10000.0)
@@ -472,6 +480,13 @@ async def main(config_path: Optional[str] = None):
         print(f"\n检查模型: {model_name}")
         if validate_alpaca_credentials(model):
             valid_models.append(model_name)
+            # 启动时拉取账户余额与持仓（即便非交易时间）
+            snapshot = fetch_alpaca_account_snapshot(
+                model.get("alpaca_api_key", ""),
+                model.get("alpaca_secret_key", "")
+            )
+            if snapshot:
+                print_alpaca_account_snapshot(snapshot)
         else:
             print(f"  ⚠️ 跳过模型 {model_name} (凭证无效)")
     
