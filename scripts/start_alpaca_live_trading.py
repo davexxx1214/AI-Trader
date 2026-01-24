@@ -214,10 +214,12 @@ def fetch_alpaca_account_snapshot(api_key: str, secret_key: str) -> Optional[dic
         return None
 
 
-def print_alpaca_account_snapshot(snapshot: dict) -> float:
+def print_alpaca_account_snapshot(snapshot: dict, model_name: Optional[str] = None) -> float:
     """
     打印 Alpaca 账户余额与持仓，返回现金余额
     """
+    if model_name:
+        print(f"📌 账户快照 ({model_name})")
     account = snapshot["account"]
     positions = snapshot["positions"]
     cash = float(getattr(account, "cash", 0.0))
@@ -351,12 +353,13 @@ async def run_trading_decision(config: dict) -> bool:
         # 拉取账户实时余额和持仓，用于初始化资金
         snapshot = fetch_alpaca_account_snapshot(alpaca_api_key, alpaca_secret_key)
         if snapshot:
-            cash = print_alpaca_account_snapshot(snapshot)
+            cash = print_alpaca_account_snapshot(snapshot, model_name=model_name)
+            initial_cash = cash
             write_config_value("INITIAL_CASH", cash)
         else:
-            fallback_cash = agent_config.get("initial_cash", 10000.0)
-            print(f"⚠️ 使用配置初始资金: ${float(fallback_cash):,.2f}")
-            write_config_value("INITIAL_CASH", fallback_cash)
+            initial_cash = agent_config.get("initial_cash", 10000.0)
+            print(f"⚠️ 使用配置初始资金: ${float(initial_cash):,.2f}")
+            write_config_value("INITIAL_CASH", initial_cash)
         
         try:
             # 创建 Agent 实例，使用 Alpaca MCP 配置
@@ -368,7 +371,7 @@ async def run_trading_decision(config: dict) -> bool:
                 max_retries=agent_config.get("max_retries", 3),
                 base_delay=agent_config.get("base_delay", 1.0),
                 recursion_limit=agent_config.get("recursion_limit", 300),
-                initial_cash=agent_config.get("initial_cash", 10000.0),
+                initial_cash=initial_cash,
                 init_date=get_eastern_now().strftime("%Y-%m-%d %H:00:00"),
                 openai_base_url=openai_base_url,
                 openai_api_key=openai_api_key,
@@ -474,6 +477,7 @@ async def main(config_path: Optional[str] = None):
     print("\n🔑 验证 Alpaca API 凭证...")
     enabled_models = [m for m in current_config.get("models", []) if m.get("enabled", True)]
     valid_models = []
+    model_cash = {}
     
     for model in enabled_models:
         model_name = model.get("name", "unknown")
@@ -486,7 +490,8 @@ async def main(config_path: Optional[str] = None):
                 model.get("alpaca_secret_key", "")
             )
             if snapshot:
-                print_alpaca_account_snapshot(snapshot)
+                cash = print_alpaca_account_snapshot(snapshot, model_name=model_name)
+                model_cash[model_name] = cash
         else:
             print(f"  ⚠️ 跳过模型 {model_name} (凭证无效)")
     
@@ -502,7 +507,11 @@ async def main(config_path: Optional[str] = None):
     print(f"⏰ 交易时间: {live_config.get('market_open', '09:30')} - {live_config.get('market_close', '16:00')} ET")
     print(f"📊 交易小时: {live_config.get('trading_hours', [10, 11, 12, 13, 14, 15, 16])}")
     print(f"🤖 有效模型: {valid_models}")
-    print(f"💰 初始资金: ${current_config.get('agent_config', {}).get('initial_cash', 10000.0):,.2f}")
+    if model_cash:
+        for name, cash in model_cash.items():
+            print(f"💰 初始资金({name}): ${float(cash):,.2f}")
+    else:
+        print(f"💰 初始资金: ${current_config.get('agent_config', {}).get('initial_cash', 10000.0):,.2f}")
     print()
     
     # 创建调度器
