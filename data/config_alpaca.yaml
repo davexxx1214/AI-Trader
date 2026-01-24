@@ -1,0 +1,69 @@
+# AI Trader Frontend Configuration - Alpaca Paper Trading Mode
+# This configuration file is for Alpaca Paper Trading data display
+# Data source: agent_data_alpaca (US Stock market via Alpaca API)
+
+# Market configurations for Alpaca paper trading
+markets:
+  alpaca:
+    name: "Alpaca Paper Trading"
+    subtitle: "AI trading agent performance via Alpaca Paper Trading API"
+    data_dir: "agent_data_alpaca"
+    benchmark_file: "Adaily_prices_QQQ.json"
+    benchmark_name: "QQQ"
+    benchmark_display_name: "QQQ Invesco"
+    currency: "USD"
+    icon: "🦙"
+    price_data_type: "individual"  # individual JSON files per stock
+    time_granularity: "hourly"
+    enabled: true
+    agents:
+      - folder: "gemini-alpaca-live"
+        display_name: "Gemini 3 Flash (Alpaca)"
+        icon: "./figs/google.svg"
+        color: "#00d4ff"
+        enabled: true
+      - folder: "deepseek-alpaca-live"
+        display_name: "DeepSeek Chat (Alpaca)"
+        icon: "./figs/deepseek.svg"
+        color: "#4a90e2"
+        enabled: true
+
+# Default market for this config
+default_market: "alpaca"
+
+# Data paths configuration
+data:
+  base_path: "."
+  price_file_prefix: "daily_prices_"
+  benchmark_file: "Adaily_prices_QQQ.json"
+
+# Benchmark configuration
+benchmark:
+  folder: "QQQ"
+  display_name: "QQQ Invesco"
+  icon: "./figs/stock.svg"
+  color: "#ff6b00"
+  enabled: true
+
+# Chart display settings
+chart:
+  default_scale: "linear"
+  max_ticks: 15
+  point_radius: 0
+  point_hover_radius: 7
+  border_width: 3
+  tension: 0.42
+
+# UI settings
+ui:
+  initial_value: 100000
+  max_recent_trades: 20
+  date_formats:
+    hourly: "MM/DD HH:mm"
+    daily: "YYYY-MM-DD"
+
+# Cache settings
+cache:
+  enabled: false  # Disable cache for live data to ensure fresh data
+  max_age_days: 1
+  show_performance_metrics: true

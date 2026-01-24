@@ -7,12 +7,13 @@ Supports both Windows and Linux/macOS.
 
 Usage:
     python scripts/start_ui.py                  # Default: backtest mode (agent_data)
-    python scripts/start_ui.py --mode backtest  # Backtest mode (agent_data)  
+    python scripts/start_ui.py --mode backtest  # Backtest mode (agent_data)
     python scripts/start_ui.py --mode live      # Live trading mode (agent_data_live)
+    python scripts/start_ui.py --mode alpaca    # Alpaca backtest mode (agent_data_alpaca)
     python scripts/start_ui.py --port 8080      # Custom port
 
 Arguments:
-    --mode, -m    Data mode: 'backtest' (default) or 'live'
+    --mode, -m    Data mode: 'backtest' (default), 'live', or 'alpaca'
     --port, -p    Server port (default: 8888)
 """
 
@@ -43,14 +44,15 @@ def main():
 Examples:
     python scripts/start_ui.py                  # Default backtest mode
     python scripts/start_ui.py --mode live      # Live trading data
+    python scripts/start_ui.py --mode alpaca    # Alpaca backtest data
     python scripts/start_ui.py -m live -p 9000  # Live mode on port 9000
         '''
     )
     parser.add_argument(
         '--mode', '-m',
-        choices=['backtest', 'live'],
+        choices=['backtest', 'live', 'alpaca'],
         default='backtest',
-        help='Data mode: backtest (agent_data) or live (agent_data_live)'
+        help='Data mode: backtest (agent_data), live (agent_data_live), or alpaca (agent_data_alpaca)'
     )
     parser.add_argument(
         '--port', '-p',
@@ -79,13 +81,18 @@ Examples:
     os.chdir(data_dir)
     
     # Determine config file based on mode
-    config_param = f"?config=config_{args.mode}.yaml" if args.mode == 'live' else ""
+    if args.mode == 'live':
+        config_param = "?config=config_live.yaml"
+    elif args.mode == 'alpaca':
+        config_param = "?config=config_alpaca.yaml"
+    else:
+        config_param = ""
     url = f"http://localhost:{args.port}/index.html{config_param}"
     
     # Print startup info
-    mode_emoji = "📊" if args.mode == 'backtest' else "🔴"
-    mode_name = "Backtest" if args.mode == 'backtest' else "Live Trading"
-    data_source = "agent_data" if args.mode == 'backtest' else "agent_data_live"
+    mode_emoji = "📊" if args.mode == 'backtest' else ("🔴" if args.mode == 'live' else "🦙")
+    mode_name = "Backtest" if args.mode == 'backtest' else ("Live Trading" if args.mode == 'live' else "Alpaca Backtest")
+    data_source = "agent_data" if args.mode == 'backtest' else ("agent_data_live" if args.mode == 'live' else "agent_data_alpaca")
     
     print()
     print("=" * 60)

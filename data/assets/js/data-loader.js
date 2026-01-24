@@ -44,13 +44,17 @@ class DataLoader {
 
             const marketConfig = this.getMarketConfig();
             const agentDataDir = marketConfig ? marketConfig.data_dir : 'agent_data';
+            const cacheBuster = `?v=${Date.now()}`;
             const agents = [];
             const enabledAgents = window.configLoader.getEnabledAgents(this.currentMarket);
 
             for (const agentConfig of enabledAgents) {
                 try {
                     console.log(`Checking agent: ${agentConfig.folder} in ${agentDataDir}`);
-                    const response = await fetch(`${this.baseDataPath}/${agentDataDir}/${agentConfig.folder}/position/position.jsonl`);
+                    const response = await fetch(
+                        `${this.baseDataPath}/${agentDataDir}/${agentConfig.folder}/position/position.jsonl${cacheBuster}`,
+                        { cache: 'no-store' }
+                    );
                     if (response.ok) {
                         agents.push(agentConfig.folder);
                         console.log(`Added agent: ${agentConfig.folder}`);
@@ -74,7 +78,11 @@ class DataLoader {
         try {
             const marketConfig = this.getMarketConfig();
             const agentDataDir = marketConfig ? marketConfig.data_dir : 'agent_data';
-            const response = await fetch(`${this.baseDataPath}/${agentDataDir}/${agentName}/position/position.jsonl`);
+            const cacheBuster = `?v=${Date.now()}`;
+            const response = await fetch(
+                `${this.baseDataPath}/${agentDataDir}/${agentName}/position/position.jsonl${cacheBuster}`,
+                { cache: 'no-store' }
+            );
             if (!response.ok) throw new Error(`Failed to load positions for ${agentName}`);
 
             const text = await response.text();
@@ -231,9 +239,10 @@ class DataLoader {
     }
 
     // Calculate total asset value for a position on a given date
-    async calculateAssetValue(position, date) {
-        let totalValue = position.positions.CASH || 0;
+    async calculateAssetValue(position, date, initialValue = null) {
         let hasMissingPrice = false;
+        let holdingsValue = 0;
+        let cashValue = position.positions.CASH ?? 0;
 
         // Get all stock symbols (exclude CASH)
         const symbols = Object.keys(position.positions).filter(s => s !== 'CASH');
@@ -243,7 +252,7 @@ class DataLoader {
             if (shares > 0) {
                 const price = await this.getClosingPrice(symbol, date);
                 if (price && !isNaN(price)) {
-                    totalValue += shares * price;
+                    holdingsValue += shares * price;
                 } else {
                     console.warn(`Missing or invalid price for ${symbol} on ${date}`);
                     hasMissingPrice = true;
@@ -256,7 +265,12 @@ class DataLoader {
             return null;
         }
 
-        return totalValue;
+        // If cash is missing/zero during initial buys, infer cash from initial value
+        if (initialValue && cashValue <= 0 && holdingsValue < initialValue * 0.5) {
+            cashValue = Math.max(initialValue - holdingsValue, 0);
+        }
+
+        return cashValue + holdingsValue;
     }
 
     // Load complete data for an agent including asset values over time
@@ -271,7 +285,14 @@ class DataLoader {
         console.log(`Processing ${positions.length} positions for ${agentName}...`);
 
         let assetHistory = [];
-        
+
+        const uiConfig = window.configLoader.getUIConfig();
+        const config = window.configLoader.config;
+        const hasConfigInitialValue = config && config.ui && typeof config.ui.initial_value === 'number';
+        const configuredInitialValue = hasConfigInitialValue
+            ? config.ui.initial_value
+            : (uiConfig.initial_value ?? 10000);
+
         const marketConfig = this.getMarketConfig();
         const isHourlyConfig = marketConfig && marketConfig.time_granularity === 'hourly';
 
@@ -364,7 +385,7 @@ class DataLoader {
                 }
 
                 // Calculate asset value using current iteration date for price lookup
-                const assetValue = await this.calculateAssetValue(currentPosition, dateStr);
+                const assetValue = await this.calculateAssetValue(currentPosition, dateStr, configuredInitialValue);
 
                 if (assetValue === null || isNaN(assetValue)) {
                     console.warn(`Skipping date ${dateStr} for ${agentName} due to missing price data`);
@@ -404,7 +425,7 @@ class DataLoader {
 
             for (const position of uniquePositions) {
                 const timestamp = position.date;
-                const assetValue = await this.calculateAssetValue(position, timestamp);
+                const assetValue = await this.calculateAssetValue(position, timestamp, configuredInitialValue);
                 
                 // For CN Hourly, we might have missing prices if timestamp doesn't align perfectly
                 if (assetValue === null) {
@@ -427,14 +448,24 @@ class DataLoader {
             return null;
         }
 
+        const firstAssetValue = assetHistory[0]?.value;
+        if (firstAssetValue && configuredInitialValue && firstAssetValue !== configuredInitialValue) {
+            const scaleFactor = configuredInitialValue / firstAssetValue;
+            assetHistory = assetHistory.map(entry => ({
+                ...entry,
+                value: entry.value * scaleFactor
+            }));
+        }
+
+        const initialValue = configuredInitialValue || assetHistory[0]?.value || 10000;
         const result = {
             name: agentName,
             positions: positions,
             assetHistory: assetHistory,
-            initialValue: assetHistory[0]?.value || 10000,
+            initialValue: initialValue,
             currentValue: assetHistory[assetHistory.length - 1]?.value || 0,
             return: assetHistory.length > 0 ?
-                ((assetHistory[assetHistory.length - 1].value - assetHistory[0].value) / assetHistory[0].value * 100) : 0
+                ((assetHistory[assetHistory.length - 1].value - initialValue) / initialValue * 100) : 0
         };
 
         console.log(`Successfully loaded data for ${agentName}:`, {
@@ -584,14 +615,11 @@ class DataLoader {
             // Calculate benchmark performance starting from first agent's initial value
             const agentNames = Object.keys(this.agentData);
             const uiConfig = window.configLoader.getUIConfig();
-            let initialValue = uiConfig.initial_value; // Default initial value from config
-
-            if (agentNames.length > 0) {
-                const firstAgent = this.agentData[agentNames[0]];
-                if (firstAgent && firstAgent.assetHistory.length > 0) {
-                    initialValue = firstAgent.assetHistory[0].value;
-                }
-            }
+            const config = window.configLoader.config;
+            const hasConfigInitialValue = config && config.ui && typeof config.ui.initial_value === 'number';
+            const initialValue = hasConfigInitialValue
+                ? config.ui.initial_value
+                : (uiConfig.initial_value ?? this.agentData[agentNames[0]]?.assetHistory?.[0]?.value ?? 10000);
 
             // Find the earliest start date and latest end date across all agents
             let startDate = null;
@@ -703,7 +731,7 @@ class DataLoader {
                 initialValue: initialValue,
                 currentValue: assetHistory.length > 0 ? assetHistory[assetHistory.length - 1].value : initialValue,
                 return: assetHistory.length > 0 ?
-                    ((assetHistory[assetHistory.length - 1].value - assetHistory[0].value) / assetHistory[0].value * 100) : 0,
+                    ((assetHistory[assetHistory.length - 1].value - initialValue) / initialValue * 100) : 0,
                 currency: currency
             };
 

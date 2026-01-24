@@ -152,9 +152,16 @@ class TransactionLoader {
         const leaderboard = [];
         const currentMarket = window.dataLoader ? window.dataLoader.getMarket() : 'us';
 
+        const uiConfig = window.configLoader.getUIConfig();
+        const config = window.configLoader.config;
+        const hasConfigInitialValue = config && config.ui && typeof config.ui.initial_value === 'number';
+        const defaultInitialValue = hasConfigInitialValue
+            ? config.ui.initial_value
+            : (uiConfig.initial_value ?? 10000);
+
         for (const [agentName, data] of Object.entries(allAgentsData)) {
             const assetHistory = data.assetHistory || [];
-            const initialValue = assetHistory[0]?.value || 10000;
+            const initialValue = data.initialValue || assetHistory[0]?.value || defaultInitialValue;
             const finalValue = assetHistory[assetHistory.length - 1]?.value || initialValue;
             const gain = finalValue - initialValue;
             const gainPercent = ((finalValue - initialValue) / initialValue) * 100;
