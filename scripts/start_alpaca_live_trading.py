@@ -196,6 +196,24 @@ def validate_alpaca_credentials(model_config: dict) -> bool:
         return False
 
 
+def fetch_alpaca_account_snapshot(api_key: str, secret_key: str) -> Optional[dict]:
+    """
+    获取 Alpaca 账户实时信息（余额与持仓）
+
+    Returns:
+        dict 包含 account 与 positions，失败返回 None
+    """
+    try:
+        from alpaca.trading.client import TradingClient
+        client = TradingClient(api_key, secret_key, paper=True)
+        account = client.get_account()
+        positions = client.get_all_positions()
+        return {"account": account, "positions": positions}
+    except Exception as e:
+        print(f"  ❌ 获取 Alpaca 账户信息失败: {e}")
+        return None
+
+
 async def fetch_live_data() -> bool:
     """
     获取实时数据
@@ -307,7 +325,30 @@ async def run_trading_decision(config: dict) -> bool:
         write_config_value("LOG_PATH", log_path)
         write_config_value("ALPACA_API_KEY", alpaca_api_key)
         write_config_value("ALPACA_SECRET_KEY", alpaca_secret_key)
-        write_config_value("INITIAL_CASH", agent_config.get("initial_cash", 10000.0))
+
+        # 拉取账户实时余额和持仓，用于初始化资金
+        snapshot = fetch_alpaca_account_snapshot(alpaca_api_key, alpaca_secret_key)
+        if snapshot:
+            account = snapshot["account"]
+            positions = snapshot["positions"]
+            cash = float(getattr(account, "cash", 0.0))
+            portfolio_value = float(getattr(account, "portfolio_value", cash))
+            print(f"💰 账户余额: ${cash:,.2f} | 账户总值: ${portfolio_value:,.2f}")
+            if positions:
+                print(f"📦 当前持仓数量: {len(positions)}")
+                for pos in positions:
+                    symbol = getattr(pos, "symbol", "UNKNOWN")
+                    qty = getattr(pos, "qty", "0")
+                    market_value = getattr(pos, "market_value", "0")
+                    unrealized_pl = getattr(pos, "unrealized_pl", "0")
+                    print(f"  - {symbol}: {qty} 股, 市值 ${market_value}, 浮盈亏 ${unrealized_pl}")
+            else:
+                print("📦 当前无持仓")
+            write_config_value("INITIAL_CASH", cash)
+        else:
+            fallback_cash = agent_config.get("initial_cash", 10000.0)
+            print(f"⚠️ 使用配置初始资金: ${float(fallback_cash):,.2f}")
+            write_config_value("INITIAL_CASH", fallback_cash)
         
         try:
             # 创建 Agent 实例，使用 Alpaca MCP 配置

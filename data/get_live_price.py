@@ -10,6 +10,7 @@ import json
 import sys
 import subprocess
 import signal
+import multiprocessing as mp
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -193,6 +194,48 @@ def update_local_file(symbol: str, new_data: Dict[str, Any]) -> bool:
         return False
 
 
+def _fetch_symbol_worker(symbol: str, result_queue: "mp.Queue"):
+    """
+    子进程工作函数：获取单只股票并写入本地文件。
+    通过队列返回执行结果，避免主进程卡死。
+    """
+    try:
+        data = fetch_latest_price(symbol)
+        if data:
+            success = update_local_file(symbol, data)
+            result_queue.put((success, None))
+        else:
+            result_queue.put((False, "⚠️ 无数据"))
+    except Exception as e:
+        result_queue.put((False, f"❌ 子进程异常: {e}"))
+
+
+def _fetch_symbol_with_hard_timeout(symbol: str, timeout_seconds: int = 45) -> bool:
+    """
+    使用子进程为单只股票设置硬超时，防止偶发卡死。
+    """
+    result_queue: "mp.Queue" = mp.Queue()
+    process = mp.Process(target=_fetch_symbol_worker, args=(symbol, result_queue))
+    process.daemon = True
+    process.start()
+
+    process.join(timeout_seconds)
+    if process.is_alive():
+        process.terminate()
+        process.join(5)
+        print(f"⚠️ {symbol}: 硬超时 {timeout_seconds} 秒，已终止子进程")
+        return False
+
+    try:
+        success, message = result_queue.get_nowait()
+        if message:
+            print(message)
+        return bool(success)
+    except Exception:
+        print(f"⚠️ {symbol}: 子进程无返回")
+        return False
+
+
 def run_merge_jsonl() -> bool:
     """
     运行 merge_jsonl.py 合并所有数据到 merged.jsonl
@@ -259,27 +302,16 @@ def fetch_all_symbols(symbols: Optional[List[str]] = None,
     for i, symbol in enumerate(symbols, 1):
         print(f"[{i}/{total}] 获取 {symbol}...", end=" ", flush=True)
         sys.stdout.flush()  # 强制刷新输出
-        
+
         try:
-            # 为每个股票设置 30 秒硬超时限制
-            with timeout_handler(30, symbol):
-                data = fetch_latest_price(symbol)
-                if data:
-                    success = update_local_file(symbol, data)
-                    results[symbol] = success
-                    if success:
-                        success_count += 1
-                        consecutive_failures = 0  # 重置失败计数
-                else:
-                    print(f"⚠️ 无数据")  # 确保有输出
-                    sys.stdout.flush()
-                    results[symbol] = False
-                    consecutive_failures += 1
-        except TimeoutError as e:
-            print(f"⚠️ {e}")
-            sys.stdout.flush()
-            results[symbol] = False
-            consecutive_failures += 1
+            # 为每个股票设置硬超时限制（子进程防卡死）
+            success = _fetch_symbol_with_hard_timeout(symbol, timeout_seconds=45)
+            results[symbol] = success
+            if success:
+                success_count += 1
+                consecutive_failures = 0  # 重置失败计数
+            else:
+                consecutive_failures += 1
         except Exception as e:
             print(f"❌ 异常: {e}")
             sys.stdout.flush()
