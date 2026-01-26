@@ -139,7 +139,7 @@ def check_service_health(port: int) -> bool:
         return False
 
 
-def start_mcp_service(service_name: str, script_name: str, port: int, log_name: str) -> Optional[subprocess.Popen]:
+def start_mcp_service(service_name: str, script_name: str, port: int, log_name: str) -> tuple:
     """
     启动单个 MCP 服务
     
@@ -150,32 +150,34 @@ def start_mcp_service(service_name: str, script_name: str, port: int, log_name: 
         log_name: 日志文件名
         
     Returns:
-        服务进程对象
+        tuple: (进程对象, 日志文件句柄) 或 (None, None)
     """
     script_path = os.path.join(project_root, "agent_tools", script_name)
     
     if not os.path.exists(script_path):
         print(f"  ❌ {service_name} 脚本不存在: {script_path}")
-        return None
+        return None, None
     
     # 检查端口是否已被占用（可能服务已在运行）
     if check_service_health(port):
         print(f"  ✅ {service_name} 服务已在运行 (端口: {port})")
-        return None  # 返回 None 但不是错误，服务已在运行
+        return None, None  # 返回 None 但不是错误，服务已在运行
     
     log_dir = Path(project_root) / "logs"
     log_dir.mkdir(exist_ok=True)
     log_file = log_dir / log_name
     
-    with open(log_file, "w") as f:
-        process = subprocess.Popen(
-            [sys.executable, script_path],
-            stdout=f,
-            stderr=subprocess.STDOUT,
-            cwd=project_root
-        )
+    # 打开日志文件（保持打开状态，不使用 with）
+    log_handle = open(log_file, "w")
     
-    return process
+    process = subprocess.Popen(
+        [sys.executable, script_path],
+        stdout=log_handle,
+        stderr=subprocess.STDOUT,
+        cwd=project_root
+    )
+    
+    return process, log_handle
 
 
 def start_all_mcp_services() -> dict:
@@ -223,17 +225,36 @@ def start_all_mcp_services() -> dict:
     
     for svc in services:
         print(f"  🔄 启动 {svc['name']} MCP 服务 (端口: {svc['port']})...")
-        process = start_mcp_service(svc["name"], svc["script"], svc["port"], svc["log"])
+        process, log_handle = start_mcp_service(svc["name"], svc["script"], svc["port"], svc["log"])
         if process:
             mcp_processes[svc["key"]] = {
                 "process": process,
                 "name": svc["name"],
-                "port": svc["port"]
+                "port": svc["port"],
+                "log_handle": log_handle
             }
     
-    # 等待服务启动
+    # 等待服务启动（带重试检查）
     print("  ⏳ 等待服务启动...")
-    time.sleep(5)
+    max_wait = 30  # 最多等待 30 秒
+    check_interval = 2  # 每 2 秒检查一次
+    
+    for wait_time in range(0, max_wait, check_interval):
+        time.sleep(check_interval)
+        
+        # 检查所有服务是否都已启动
+        all_ready = True
+        for svc in services:
+            if not check_service_health(svc["port"]):
+                all_ready = False
+                break
+        
+        if all_ready:
+            print(f"  ✅ 所有服务已在 {wait_time + check_interval} 秒内启动")
+            break
+        
+        if wait_time + check_interval >= max_wait:
+            print(f"  ⚠️ 等待超时 ({max_wait}秒)")
     
     # 检查服务状态
     print("  🔍 检查服务状态...")
@@ -242,11 +263,20 @@ def start_all_mcp_services() -> dict:
         if check_service_health(svc["port"]):
             print(f"  ✅ {svc['name']} 服务运行正常 (端口: {svc['port']})")
         else:
-            print(f"  ❌ {svc['name']} 服务启动失败 (端口: {svc['port']})")
+            # 检查进程是否还在运行
+            key = svc["key"]
+            if key in mcp_processes:
+                proc = mcp_processes[key].get("process")
+                if proc and proc.poll() is not None:
+                    print(f"  ❌ {svc['name']} 进程已退出 (端口: {svc['port']})，请检查日志: logs/{svc['log']}")
+                else:
+                    print(f"  ❌ {svc['name']} 服务未响应 (端口: {svc['port']})")
+            else:
+                print(f"  ❌ {svc['name']} 服务启动失败 (端口: {svc['port']})")
             all_healthy = False
     
     if not all_healthy:
-        print("  ⚠️ 部分 MCP 服务启动失败，请检查日志")
+        print("  ⚠️ 部分 MCP 服务启动失败，请检查 logs/ 目录下的日志文件")
     
     return mcp_processes
 
@@ -264,6 +294,8 @@ def stop_all_mcp_services():
         process = svc.get("process")
         name = svc.get("name", key)
         port = svc.get("port", "?")
+        log_handle = svc.get("log_handle")
+        
         if process and process.poll() is None:
             try:
                 process.terminate()
@@ -274,6 +306,13 @@ def stop_all_mcp_services():
                 print(f"  🔨 {name} 服务已强制停止 (端口: {port})")
             except Exception as e:
                 print(f"  ❌ 停止 {name} 服务时出错: {e}")
+        
+        # 关闭日志文件句柄
+        if log_handle:
+            try:
+                log_handle.close()
+            except:
+                pass
     
     mcp_processes.clear()
     print("💡 如需停止所有 MCP 服务，请运行: ./scripts/stop_alpaca_live_trading.sh")
