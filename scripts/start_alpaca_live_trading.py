@@ -54,6 +54,7 @@ scheduler: Optional[AsyncIOScheduler] = None
 current_config: Optional[dict] = None
 is_running = True
 alpaca_mcp_process: Optional[subprocess.Popen] = None
+mcp_processes: dict = {}  # 存储所有 MCP 服务进程
 
 
 def resolve_env_variables(config: dict) -> dict:
@@ -112,9 +113,175 @@ def load_config(config_path: Optional[str] = None) -> dict:
     return config
 
 
+def is_port_available(port: int) -> bool:
+    """检查端口是否可用"""
+    import socket
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex(("localhost", port))
+        sock.close()
+        return result != 0  # 连接失败表示端口可用
+    except:
+        return False
+
+
+def check_service_health(port: int) -> bool:
+    """检查服务是否健康（端口是否响应）"""
+    import socket
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2)
+        result = sock.connect_ex(("localhost", port))
+        sock.close()
+        return result == 0
+    except:
+        return False
+
+
+def start_mcp_service(service_name: str, script_name: str, port: int, log_name: str) -> Optional[subprocess.Popen]:
+    """
+    启动单个 MCP 服务
+    
+    Args:
+        service_name: 服务显示名称
+        script_name: 脚本文件名
+        port: 端口号
+        log_name: 日志文件名
+        
+    Returns:
+        服务进程对象
+    """
+    script_path = os.path.join(project_root, "agent_tools", script_name)
+    
+    if not os.path.exists(script_path):
+        print(f"  ❌ {service_name} 脚本不存在: {script_path}")
+        return None
+    
+    # 检查端口是否已被占用（可能服务已在运行）
+    if check_service_health(port):
+        print(f"  ✅ {service_name} 服务已在运行 (端口: {port})")
+        return None  # 返回 None 但不是错误，服务已在运行
+    
+    log_dir = Path(project_root) / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / log_name
+    
+    with open(log_file, "w") as f:
+        process = subprocess.Popen(
+            [sys.executable, script_path],
+            stdout=f,
+            stderr=subprocess.STDOUT,
+            cwd=project_root
+        )
+    
+    return process
+
+
+def start_all_mcp_services() -> dict:
+    """
+    启动所有必需的 MCP 服务
+    
+    Returns:
+        dict: 服务名称到进程的映射
+    """
+    global mcp_processes
+    
+    # 定义需要启动的服务
+    services = [
+        {
+            "name": "Math",
+            "script": "tool_math.py",
+            "port": int(os.getenv("MATH_HTTP_PORT", "8000")),
+            "log": "math_mcp.log",
+            "key": "math"
+        },
+        {
+            "name": "Search",
+            "script": "tool_alphavantage_news.py",
+            "port": int(os.getenv("SEARCH_HTTP_PORT", "8001")),
+            "log": "search_mcp.log",
+            "key": "search"
+        },
+        {
+            "name": "LocalPrices",
+            "script": "tool_get_price_local.py",
+            "port": int(os.getenv("GETPRICE_HTTP_PORT", "8003")),
+            "log": "price_mcp.log",
+            "key": "price"
+        },
+        {
+            "name": "Alpaca",
+            "script": "tool_alpaca_trade.py",
+            "port": int(os.getenv("ALPACA_HTTP_PORT", "8006")),
+            "log": "alpaca_mcp.log",
+            "key": "alpaca"
+        },
+    ]
+    
+    print("🚀 启动 MCP 服务...")
+    
+    for svc in services:
+        print(f"  🔄 启动 {svc['name']} MCP 服务 (端口: {svc['port']})...")
+        process = start_mcp_service(svc["name"], svc["script"], svc["port"], svc["log"])
+        if process:
+            mcp_processes[svc["key"]] = {
+                "process": process,
+                "name": svc["name"],
+                "port": svc["port"]
+            }
+    
+    # 等待服务启动
+    print("  ⏳ 等待服务启动...")
+    time.sleep(5)
+    
+    # 检查服务状态
+    print("  🔍 检查服务状态...")
+    all_healthy = True
+    for svc in services:
+        if check_service_health(svc["port"]):
+            print(f"  ✅ {svc['name']} 服务运行正常 (端口: {svc['port']})")
+        else:
+            print(f"  ❌ {svc['name']} 服务启动失败 (端口: {svc['port']})")
+            all_healthy = False
+    
+    if not all_healthy:
+        print("  ⚠️ 部分 MCP 服务启动失败，请检查日志")
+    
+    return mcp_processes
+
+
+def stop_all_mcp_services():
+    """停止本脚本启动的 MCP 服务"""
+    global mcp_processes
+    
+    if not mcp_processes:
+        return
+    
+    print("🛑 停止本脚本启动的 MCP 服务...")
+    
+    for key, svc in mcp_processes.items():
+        process = svc.get("process")
+        name = svc.get("name", key)
+        port = svc.get("port", "?")
+        if process and process.poll() is None:
+            try:
+                process.terminate()
+                process.wait(timeout=5)
+                print(f"  ✅ {name} 服务已停止 (端口: {port})")
+            except subprocess.TimeoutExpired:
+                process.kill()
+                print(f"  🔨 {name} 服务已强制停止 (端口: {port})")
+            except Exception as e:
+                print(f"  ❌ 停止 {name} 服务时出错: {e}")
+    
+    mcp_processes.clear()
+    print("💡 如需停止所有 MCP 服务，请运行: ./scripts/stop_alpaca_live_trading.sh")
+
+
 def start_alpaca_mcp_service() -> Optional[subprocess.Popen]:
     """
-    启动 Alpaca MCP 服务
+    启动 Alpaca MCP 服务（兼容旧代码）
     
     Returns:
         服务进程对象
@@ -444,7 +611,7 @@ def signal_handler(signum, frame):
     is_running = False
     if scheduler:
         scheduler.shutdown(wait=False)
-    stop_alpaca_mcp_service(alpaca_mcp_process)
+    stop_all_mcp_services()  # 停止所有 MCP 服务
 
 
 async def main(config_path: Optional[str] = None):
@@ -467,10 +634,14 @@ async def main(config_path: Optional[str] = None):
     # 加载配置
     current_config = load_config(config_path)
     
-    # 启动 Alpaca MCP 服务
-    alpaca_mcp_process = start_alpaca_mcp_service()
-    if not alpaca_mcp_process:
-        print("❌ 无法启动 Alpaca MCP 服务，退出")
+    # 启动所有必需的 MCP 服务（包括 math, search, price, alpaca）
+    start_all_mcp_services()
+    
+    # 检查 Alpaca MCP 服务是否运行
+    alpaca_port = int(os.getenv("ALPACA_HTTP_PORT", "8006"))
+    if not check_service_health(alpaca_port):
+        print("❌ Alpaca MCP 服务未能启动，退出")
+        stop_all_mcp_services()
         sys.exit(1)
     
     # 验证 Alpaca 凭证
@@ -564,7 +735,7 @@ async def main(config_path: Optional[str] = None):
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
-        stop_alpaca_mcp_service(alpaca_mcp_process)
+        stop_all_mcp_services()  # 停止所有 MCP 服务
         print("\n🛑 Alpaca 实时交易系统已停止")
 
 
