@@ -3,10 +3,11 @@
 Alpaca Live Trading Scheduler - Alpaca 实时交易调度器
 
 功能：
-1. 在美股交易时间内，每小时执行一次交易决策
+1. 在美股交易时间内，每天执行两次交易决策（10:30 AM 和 3:00 PM 美东时间）
 2. 使用 Alpaca Paper Trading API 执行真实下单
 3. 支持多账户（每个 AI 模型一个 Alpaca 账户）
 4. 自动拉取实时数据并更新 merged.jsonl
+5. 集成 Polymarket 预测市场情绪指标作为交易决策参考
 
 使用方法：
     python scripts/start_alpaca_live_trading.py [config_path]
@@ -55,6 +56,66 @@ current_config: Optional[dict] = None
 is_running = True
 alpaca_mcp_process: Optional[subprocess.Popen] = None
 mcp_processes: dict = {}  # 存储所有 MCP 服务进程
+
+# 默认交易时间配置
+DEFAULT_TRADING_TIMES = [
+    {"hour": 10, "minute": 30},  # 10:30 AM ET
+    {"hour": 15, "minute": 0},   # 3:00 PM ET
+]
+
+
+def get_next_scheduled_trade_time(trading_times: list = None, dt: datetime = None) -> tuple:
+    """
+    获取下一个配置的交易时间点
+    
+    Args:
+        trading_times: 交易时间配置列表，格式为 [{"hour": 10, "minute": 30}, ...]
+        dt: 起始时间（美东时间），默认为当前时间
+        
+    Returns:
+        tuple: (下一个交易时间 datetime, 格式化字符串, 距离秒数)
+    """
+    from datetime import timedelta
+    
+    if trading_times is None:
+        trading_times = DEFAULT_TRADING_TIMES
+    if dt is None:
+        dt = get_eastern_now()
+    
+    # 按时间排序
+    sorted_times = sorted(trading_times, key=lambda x: (x["hour"], x["minute"]))
+    
+    # 首先检查今天是否是交易日以及还有没有今天的交易时间
+    if is_trading_day(dt):
+        current_time_mins = dt.hour * 60 + dt.minute
+        for t in sorted_times:
+            trade_time_mins = t["hour"] * 60 + t["minute"]
+            if trade_time_mins > current_time_mins:
+                next_dt = dt.replace(hour=t["hour"], minute=t["minute"], second=0, microsecond=0)
+                time_str = next_dt.strftime("%Y-%m-%d %H:%M:%S")
+                seconds_until = int((next_dt - dt).total_seconds())
+                return next_dt, time_str, seconds_until
+    
+    # 如果今天没有剩余交易时间，找下一个交易日
+    check_date = dt.date() + timedelta(days=1)
+    max_days = 10
+    
+    for _ in range(max_days):
+        check_dt = datetime(check_date.year, check_date.month, check_date.day, 
+                           tzinfo=US_EASTERN)
+        if is_trading_day(check_dt):
+            first_trade = sorted_times[0]
+            next_dt = check_dt.replace(hour=first_trade["hour"], 
+                                       minute=first_trade["minute"], 
+                                       second=0, microsecond=0)
+            time_str = next_dt.strftime("%Y-%m-%d %H:%M:%S")
+            seconds_until = int((next_dt - dt).total_seconds())
+            return next_dt, time_str, seconds_until
+        check_date = check_date + timedelta(days=1)
+    
+    # 兜底：返回一周后
+    fallback = dt + timedelta(days=7)
+    return fallback, fallback.strftime("%Y-%m-%d %H:%M:%S"), int(7 * 24 * 3600)
 
 
 def resolve_env_variables(config: dict) -> dict:
@@ -615,9 +676,35 @@ async def run_trading_decision(config: dict) -> bool:
     return success
 
 
+async def fetch_polymarket_sentiment() -> str:
+    """
+    获取 Polymarket 金融市场情绪指标
+    
+    Returns:
+        情绪指标字符串，如果获取失败返回空字符串
+    """
+    try:
+        # 直接调用 Polymarket 工具（不需要通过 MCP）
+        import sys
+        import os
+        agent_tools_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "agent_tools")
+        if agent_tools_path not in sys.path:
+            sys.path.insert(0, agent_tools_path)
+        
+        from tool_polymarket import get_financial_sentiment_impl
+        
+        print("📊 获取 Polymarket 金融市场情绪指标...")
+        sentiment_data = get_financial_sentiment_impl()
+        print("✅ Polymarket 数据获取成功")
+        return sentiment_data
+    except Exception as e:
+        print(f"⚠️ 获取 Polymarket 数据失败: {e}")
+        return ""
+
+
 async def trading_job():
     """
-    交易任务 - 每小时执行一次
+    交易任务 - 每天执行两次（10:30 AM 和 3:00 PM 美东时间）
     """
     global current_config
     
@@ -647,10 +734,17 @@ async def trading_job():
     if live_config.get("auto_fetch_data", True):
         await fetch_live_data()
     
-    # 2. 执行交易决策
+    # 2. 获取 Polymarket 情绪指标
+    polymarket_sentiment = await fetch_polymarket_sentiment()
+    if polymarket_sentiment:
+        write_config_value("POLYMARKET_SENTIMENT", polymarket_sentiment)
+    else:
+        write_config_value("POLYMARKET_SENTIMENT", "")
+    
+    # 3. 执行交易决策
     await run_trading_decision(current_config)
     
-    # 3. 显示下次执行时间
+    # 4. 显示下次执行时间
     next_time, next_str = get_next_trading_time(now)
     print(f"\n⏭️ 下次交易时间: {next_str}")
     print("=" * 60 + "\n")
@@ -726,9 +820,13 @@ async def main(config_path: Optional[str] = None):
     # 显示配置信息
     live_config = current_config.get("live_config", {})
     
+    # 获取交易时间配置
+    trading_times = live_config.get("trading_times", DEFAULT_TRADING_TIMES)
+    trading_times_str = ", ".join([f"{t['hour']}:{t['minute']:02d}" for t in trading_times])
+    
     print(f"\n📈 市场: 美股 (US) - Alpaca Paper Trading")
-    print(f"⏰ 交易时间: {live_config.get('market_open', '09:30')} - {live_config.get('market_close', '16:00')} ET")
-    print(f"📊 交易小时: {live_config.get('trading_hours', [10, 11, 12, 13, 14, 15, 16])}")
+    print(f"⏰ 市场时间: {live_config.get('market_open', '09:30')} - {live_config.get('market_close', '16:00')} ET")
+    print(f"📊 每日交易时间: {trading_times_str} ET")
     print(f"🤖 有效模型: {valid_models}")
     if model_cash:
         for name, cash in model_cash.items():
@@ -740,21 +838,22 @@ async def main(config_path: Optional[str] = None):
     # 创建调度器
     scheduler = AsyncIOScheduler(timezone=US_EASTERN)
     
-    # 添加每小时整点执行的任务
-    trading_hours = live_config.get("trading_hours", [10, 11, 12, 13, 14, 15, 16])
-    
-    # 使用 cron 触发器，在指定小时的第 5 分钟执行
-    scheduler.add_job(
-        trading_job,
-        CronTrigger(
-            hour=",".join(map(str, trading_hours)),
-            minute=5,
-            timezone=US_EASTERN,
-        ),
-        id="alpaca_trading_job",
-        name="Alpaca 实时交易任务",
-        replace_existing=True,
-    )
+    # 每天交易两次：
+    # 10:30 AM - 市场开盘后30分钟，价格已稳定
+    # 3:00 PM - 收盘前1小时，捕捉日内趋势
+    # 为每个交易时间点添加任务
+    for i, trade_time in enumerate(trading_times):
+        scheduler.add_job(
+            trading_job,
+            CronTrigger(
+                hour=trade_time["hour"],
+                minute=trade_time["minute"],
+                timezone=US_EASTERN,
+            ),
+            id=f"alpaca_trading_job_{i}",
+            name=f"Alpaca 交易任务 ({trade_time['hour']}:{trade_time['minute']:02d})",
+            replace_existing=True,
+        )
     
     # 启动调度器
     scheduler.start()
@@ -762,20 +861,31 @@ async def main(config_path: Optional[str] = None):
     now = get_eastern_now()
     print(f"✅ 调度器已启动 - 当前美东时间: {format_eastern_time(now)}")
     
-    # 检查当前状态
+    # 检查当前状态并计算下一个交易时间
+    next_trade_dt, next_trade_str, seconds_until = get_next_scheduled_trade_time(trading_times, now)
+    
     if is_trading_day(now):
         if is_market_hours(now):
             print(f"📈 当前在交易时间内")
-            current_hour = get_current_trading_hour(now)
-            if current_hour:
+            # 检查是否正好是配置的交易时间（5分钟内）
+            current_mins = now.hour * 60 + now.minute
+            should_trade_now = False
+            for t in trading_times:
+                trade_mins = t["hour"] * 60 + t["minute"]
+                # 如果当前时间在交易时间点的 5 分钟内，立即执行
+                if 0 <= (current_mins - trade_mins) <= 5:
+                    should_trade_now = True
+                    break
+            
+            if should_trade_now:
                 print(f"🚀 立即执行首次交易任务...")
                 await trading_job()
+            else:
+                print(f"⏰ 下次交易时间: {next_trade_str}")
         else:
-            next_time, next_str = get_next_trading_time(now)
-            print(f"⏰ 当前不在交易时间，下次交易: {next_str}")
+            print(f"⏰ 当前不在交易时间，下次交易: {next_trade_str}")
     else:
-        next_time, next_str = get_next_trading_time(now)
-        print(f"📅 今天不是交易日，下次交易: {next_str}")
+        print(f"📅 今天不是交易日，下次交易: {next_trade_str}")
     
     print("\n💡 按 Ctrl+C 停止服务")
     print("=" * 60 + "\n")

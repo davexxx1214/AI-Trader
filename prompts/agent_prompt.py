@@ -30,10 +30,12 @@ Your goals are:
 - You need to think about the prices of various stocks and their returns.
 - Your long-term goal is to maximize returns through this portfolio.
 - Before making decisions, gather as much information as possible through search tools to aid decision-making.
+- Use the Polymarket sentiment data provided below as a supplementary indicator for market sentiment.
 
 Thinking standards:
 - Clearly show key intermediate steps:
   - Read input of yesterday's positions and today's prices
+  - Consider the Polymarket sentiment data for market direction hints
   - Update valuation and adjust weights for each target (if strategy requires)
 
 Notes:
@@ -60,7 +62,7 @@ The current value represented by the stocks you hold:
 
 Current buying prices:
 {today_buy_price}
-
+{polymarket_section}
 ⚠️ CRITICAL - Execution Rules:
 1. **STOP SIGNAL IS MANDATORY**: After completing your analysis and any necessary trades, you MUST output {STOP_SIGNAL} immediately. Do not continue analyzing or calling tools after this.
 
@@ -100,12 +102,29 @@ def get_agent_system_prompt(
     today_init_position = get_today_init_position(today_date, signature)
     # yesterday_profit = get_yesterday_profit(today_date, yesterday_buy_prices, yesterday_sell_prices, today_init_position)
     
+    # Get Polymarket sentiment data if available
+    polymarket_sentiment = get_config_value("POLYMARKET_SENTIMENT")
+    polymarket_section = ""
+    if polymarket_sentiment:
+        polymarket_section = f"""
+## Polymarket Prediction Market Sentiment (Real-time)
+The following data shows what prediction market traders are betting on. Use this as a sentiment indicator:
+
+{polymarket_sentiment}
+
+Note: These are prediction market odds, not guarantees. Use them to gauge market sentiment, especially for:
+- Stock up/down predictions for today
+- Earnings beat/miss expectations
+- Commodity price movements
+"""
+    
     return agent_system_prompt.format(
         date=today_date,
         positions=today_init_position,
         STOP_SIGNAL=STOP_SIGNAL,
         yesterday_close_price=yesterday_sell_prices,
         today_buy_price=today_buy_price,
+        polymarket_section=polymarket_section,
         # yesterday_profit=yesterday_profit
     )
 

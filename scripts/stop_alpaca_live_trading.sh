@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Alpaca Live Trading Stop Script
-# 停止 Alpaca 实时交易系统
+# 停止 Alpaca 实时交易系统（含 Polymarket MCP 服务）
 #
 
 set -e
@@ -64,6 +64,7 @@ declare -A MCP_SERVICES=(
     ["Search"]="${SEARCH_HTTP_PORT:-8001}"
     ["LocalPrices"]="${GETPRICE_HTTP_PORT:-8003}"
     ["Alpaca"]="${ALPACA_HTTP_PORT:-8006}"
+    ["Polymarket"]="${POLYMARKET_HTTP_PORT:-8007}"
 )
 
 STOPPED_COUNT=0
