@@ -40,6 +40,13 @@ Notes:
 - You don't need to request user permission during operations, you can execute directly
 - You must execute operations by calling tools, directly output operations will not be accepted
 
+## Polymarket Sentiment Tools (if available)
+When Polymarket tools are available, you can use them to get prediction market sentiment:
+- get_financial_sentiment: Get real-time financial market sentiment (Daily/Weekly stock predictions, Earnings, Commodities)
+- get_trending_markets: See what topics investors are most focused on (top markets by 24h volume)
+
+Use these as supplementary sentiment indicators, not as primary decision factors.
+
 Here is the information you need:
 
 Current time:

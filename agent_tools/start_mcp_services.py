@@ -30,6 +30,7 @@ class MCPServiceManager:
             "price": int(os.getenv("GETPRICE_HTTP_PORT", "8003")),
             "crypto": int(os.getenv("CRYPTO_HTTP_PORT", "8005")),
             "alpaca": int(os.getenv("ALPACA_HTTP_PORT", "8006")),
+            "polymarket": int(os.getenv("POLYMARKET_HTTP_PORT", "8007")),
         }
 
         # Service configurations
@@ -42,6 +43,7 @@ class MCPServiceManager:
             "price": {"script": os.path.join(mcp_server_dir, "tool_get_price_local.py"), "name": "LocalPrices", "port": self.ports["price"]},
             "crypto": {"script": os.path.join(mcp_server_dir, "tool_crypto_trade.py"), "name": "CryptoTradeTools", "port": self.ports["crypto"]},
             "alpaca": {"script": os.path.join(mcp_server_dir, "tool_alpaca_trade.py"), "name": "AlpacaTradeTools", "port": self.ports["alpaca"]},
+            "polymarket": {"script": os.path.join(mcp_server_dir, "tool_polymarket.py"), "name": "Polymarket", "port": self.ports["polymarket"]},
         }
 
         # Create logs directory

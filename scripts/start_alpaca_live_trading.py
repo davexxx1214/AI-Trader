@@ -219,6 +219,13 @@ def start_all_mcp_services() -> dict:
             "log": "alpaca_mcp.log",
             "key": "alpaca"
         },
+        {
+            "name": "Polymarket",
+            "script": "tool_polymarket.py",
+            "port": int(os.getenv("POLYMARKET_HTTP_PORT", "8007")),
+            "log": "polymarket_mcp.log",
+            "key": "polymarket"
+        },
     ]
     
     print("🚀 启动 MCP 服务...")
@@ -476,6 +483,7 @@ def get_alpaca_mcp_config() -> dict:
     """
     获取 Alpaca 交易专用的 MCP 配置
     将 trade 服务指向 Alpaca MCP 端口
+    包含 Polymarket 预测市场情绪指标服务
     """
     return {
         "math": {
@@ -494,6 +502,11 @@ def get_alpaca_mcp_config() -> dict:
         "trade": {
             "transport": "streamable_http",
             "url": f"http://localhost:{os.getenv('ALPACA_HTTP_PORT', '8006')}/mcp",
+        },
+        # Polymarket 预测市场情绪指标
+        "polymarket": {
+            "transport": "streamable_http",
+            "url": f"http://localhost:{os.getenv('POLYMARKET_HTTP_PORT', '8007')}/mcp",
         },
     }
 
