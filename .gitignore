@@ -122,3 +122,6 @@ test_*.py
 *__test*
 *_test.json
 *_backup_*
+
+# Skills config (contains real API keys)
+skills/*/config.yaml
