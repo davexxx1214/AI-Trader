@@ -104,7 +104,9 @@ class BaseAgent_Hour(BaseAgent):
                 
                 # Extract tool messages with None check
                 tool_msgs = extract_tool_messages(response)
-                tool_response = '\n'.join([msg.content for msg in tool_msgs if msg.content is not None])
+                tool_response = "\n".join(
+                    [str(msg.content) for msg in tool_msgs if msg.content is not None]
+                )
                 
                 # Prepare new messages
                 new_messages = [

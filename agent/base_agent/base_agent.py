@@ -45,6 +45,17 @@ class DeepSeekChatOpenAI(ChatOpenAI):
     def _create_message_dicts(self, messages: list, stop: Optional[list] = None) -> list:
         """Override to handle response parsing"""
         message_dicts = super()._create_message_dicts(messages, stop)
+        # DeepSeek expects string content in every message; coerce lists/dicts.
+        for msg in message_dicts:
+            content = msg.get("content")
+            if content is None:
+                msg["content"] = ""
+                continue
+            if not isinstance(content, str):
+                try:
+                    msg["content"] = json.dumps(content, ensure_ascii=False)
+                except Exception:
+                    msg["content"] = str(content)
         return message_dicts
 
     def _generate(self, messages: list, stop: Optional[list] = None, **kwargs):
@@ -497,7 +508,9 @@ class BaseAgent:
 
                 # Extract tool messages
                 tool_msgs = extract_tool_messages(response)
-                tool_response = "\n".join([msg.content for msg in tool_msgs])
+                tool_response = "\n".join(
+                    [str(msg.content) for msg in tool_msgs if msg.content is not None]
+                )
 
                 # Prepare new messages
                 new_messages = [
