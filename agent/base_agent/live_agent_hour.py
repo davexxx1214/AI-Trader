@@ -83,12 +83,18 @@ class LiveAgent_Hour(BaseAgent_Hour):
             return []
         
         # 检查是否已经处理过这个时间点
+        # 注意: id=0 的记录是初始化记录（register_agent 写入），不算已处理
         if os.path.exists(self.position_file):
             import json
             with open(self.position_file, "r") as f:
                 for line in f:
-                    doc = json.loads(line)
-                    if doc.get("date") == current_hour:
+                    if not line.strip():
+                        continue
+                    try:
+                        doc = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if doc.get("date") == current_hour and doc.get("id", 0) > 0:
                         print(f"⏭️ 时间点 {current_hour} 已处理过，跳过")
                         return []
         

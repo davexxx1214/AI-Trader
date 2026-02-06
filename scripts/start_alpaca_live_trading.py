@@ -745,8 +745,10 @@ async def trading_job():
     await run_trading_decision(current_config)
     
     # 4. 显示下次执行时间
-    next_time, next_str = get_next_trading_time(now)
-    print(f"\n⏭️ 下次交易时间: {next_str}")
+    live_config = current_config.get("live_config", {})
+    trading_times = live_config.get("trading_times", DEFAULT_TRADING_TIMES)
+    next_trade_dt, next_trade_str, seconds_until = get_next_scheduled_trade_time(trading_times, get_eastern_now())
+    print(f"\n⏭️ 下次交易时间: {next_trade_str} ET")
     print("=" * 60 + "\n")
 
 
