@@ -31,6 +31,13 @@ echo -e "${BLUE}============================================${NC}"
 # 进入项目根目录
 cd "$PROJECT_ROOT"
 
+# 检查是否有虚拟环境，优先使用
+VENV_PATH="$PROJECT_ROOT/venv"
+if [ -d "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
+    echo -e "${BLUE}🐍 检测到虚拟环境，激活中...${NC}"
+    source "$VENV_PATH/bin/activate"
+fi
+
 # 检查 Python 环境
 if ! command -v python3 &> /dev/null; then
     if ! command -v python &> /dev/null; then
@@ -42,7 +49,7 @@ else
     PYTHON_CMD="python3"
 fi
 
-echo -e "${GREEN}✅ 使用 Python: $($PYTHON_CMD --version)${NC}"
+echo -e "${GREEN}✅ 使用 Python: $($PYTHON_CMD --version) ($(which $PYTHON_CMD))${NC}"
 
 # 检查 .env 文件
 if [ ! -f ".env" ]; then
