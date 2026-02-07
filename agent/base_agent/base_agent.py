@@ -42,10 +42,8 @@ class DeepSeekChatOpenAI(ChatOpenAI):
     Handles the case where DeepSeek returns tool_calls.args as JSON strings instead of dicts.
     """
 
-    def _create_message_dicts(self, messages: list, stop: Optional[list] = None) -> list:
-        """Override to handle response parsing"""
-        message_dicts = super()._create_message_dicts(messages, stop)
-        # DeepSeek expects string content in every message; coerce lists/dicts.
+    def _sanitize_message_dicts(self, message_dicts: list) -> list:
+        """Ensure DeepSeek-compatible message payloads."""
         for msg in message_dicts:
             content = msg.get("content")
             if content is None:
@@ -56,7 +54,44 @@ class DeepSeekChatOpenAI(ChatOpenAI):
                     msg["content"] = json.dumps(content, ensure_ascii=False)
                 except Exception:
                     msg["content"] = str(content)
+            # DeepSeek expects tool/function arguments as JSON strings.
+            tool_calls = msg.get("tool_calls")
+            if isinstance(tool_calls, list):
+                for tool_call in tool_calls:
+                    function = tool_call.get("function") if isinstance(tool_call, dict) else None
+                    if isinstance(function, dict) and "arguments" in function:
+                        args = function.get("arguments")
+                        if args is not None and not isinstance(args, str):
+                            try:
+                                function["arguments"] = json.dumps(args, ensure_ascii=False)
+                            except Exception:
+                                function["arguments"] = str(args)
+            function_call = msg.get("function_call")
+            if isinstance(function_call, dict) and "arguments" in function_call:
+                args = function_call.get("arguments")
+                if args is not None and not isinstance(args, str):
+                    try:
+                        function_call["arguments"] = json.dumps(args, ensure_ascii=False)
+                    except Exception:
+                        function_call["arguments"] = str(args)
         return message_dicts
+
+    def _create_message_dicts(self, messages: list, stop: Optional[list] = None) -> list:
+        """Override to handle response parsing"""
+        try:
+            message_dicts = super()._create_message_dicts(messages, stop)
+        except AttributeError:
+            payload = self._get_request_payload(messages, stop=stop)
+            message_dicts = payload.get("messages", [])
+        message_dicts = self._sanitize_message_dicts(message_dicts)
+        return message_dicts
+
+    def _get_request_payload(self, input_: "LanguageModelInput", *, stop: Optional[list] = None, **kwargs):
+        payload = super()._get_request_payload(input_, stop=stop, **kwargs)
+        messages = payload.get("messages")
+        if isinstance(messages, list):
+            payload["messages"] = self._sanitize_message_dicts(messages)
+        return payload
 
     def _generate(self, messages: list, stop: Optional[list] = None, **kwargs):
         """Override generation to fix tool_calls format in responses"""
