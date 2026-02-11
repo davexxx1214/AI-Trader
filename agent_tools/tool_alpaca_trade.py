@@ -12,7 +12,7 @@ Usage:
 
 import os
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from fastmcp import FastMCP
 
@@ -24,6 +24,7 @@ import json
 from datetime import datetime
 
 from tools.general_tools import get_config_value, write_config_value
+from tools.price_tools import all_nasdaq_100_symbols
 
 # Alpaca imports
 try:
@@ -36,6 +37,81 @@ except ImportError:
     print("Warning: alpaca-py not installed. Run: pip install alpaca-py")
 
 mcp = FastMCP("AlpacaTradeTools")
+
+DEFAULT_POSITION_SYMBOLS: List[str] = list(dict.fromkeys(all_nasdaq_100_symbols + ["QQQ"]))
+
+
+def _normalize_positions(positions: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = {symbol: 0 for symbol in DEFAULT_POSITION_SYMBOLS}
+    for key, value in positions.items():
+        if key == "CASH":
+            continue
+        normalized[key] = value
+    normalized["CASH"] = float(positions.get("CASH", 0))
+    return normalized
+
+
+def _build_positions_from_alpaca(account, positions) -> Dict[str, Any]:
+    new_positions: Dict[str, Any] = {"CASH": float(account.cash)}
+    for pos in positions:
+        new_positions[pos.symbol] = int(float(pos.qty))
+    return _normalize_positions(new_positions)
+
+
+def _format_positions_details(positions) -> List[Dict[str, Any]]:
+    details = []
+    for pos in positions:
+        details.append({
+            "symbol": pos.symbol,
+            "qty": float(pos.qty),
+            "avg_entry_price": float(pos.avg_entry_price),
+            "current_price": float(pos.current_price),
+            "market_value": float(pos.market_value),
+            "unrealized_pl": float(pos.unrealized_pl),
+            "unrealized_plpc": float(pos.unrealized_plpc),
+            "side": pos.side.value
+        })
+    return details
+
+
+def _record_balance_snapshot(
+    signature: str,
+    today_date: str,
+    trade_info: Dict[str, Any],
+    account,
+    positions
+) -> None:
+    log_path = get_config_value("LOG_PATH", "./data/agent_data_alpaca")
+    if log_path.startswith("./data/"):
+        log_path = log_path[7:]
+
+    balance_dir = os.path.join(project_root, "data", log_path, signature, "balance")
+    os.makedirs(balance_dir, exist_ok=True)
+    balance_file_path = os.path.join(balance_dir, "balance.jsonl")
+
+    record = {
+        "date": today_date,
+        "trade": trade_info,
+        "account": {
+            "account_number": account.account_number,
+            "status": account.status.value,
+            "cash": float(account.cash),
+            "buying_power": float(account.buying_power),
+            "portfolio_value": float(account.portfolio_value),
+            "equity": float(account.equity),
+            "last_equity": float(account.last_equity),
+            "long_market_value": float(account.long_market_value),
+            "short_market_value": float(account.short_market_value),
+            "initial_margin": float(account.initial_margin),
+            "maintenance_margin": float(account.maintenance_margin),
+            "daytrade_count": account.daytrade_count,
+            "pattern_day_trader": account.pattern_day_trader
+        },
+        "positions": _format_positions_details(positions)
+    }
+
+    with open(balance_file_path, "a") as f:
+        f.write(json.dumps(record) + "\n")
 
 
 def _get_alpaca_client() -> Optional[TradingClient]:
@@ -116,7 +192,7 @@ def _record_local_position(
             "price": price,
             "source": "alpaca"
         },
-        "positions": new_positions
+        "positions": _normalize_positions(new_positions)
     }
     
     with open(position_file_path, "a") as f:
@@ -146,7 +222,7 @@ def _get_local_positions(signature: str) -> Dict[str, Any]:
     
     if not os.path.exists(position_file_path):
         initial_cash = float(get_config_value("INITIAL_CASH", 10000.0))
-        return {"CASH": initial_cash}
+        return _normalize_positions({"CASH": initial_cash})
     
     # Get latest position record
     latest_positions = {"CASH": 10000.0}
@@ -160,7 +236,7 @@ def _get_local_positions(signature: str) -> Dict[str, Any]:
                 except:
                     pass
     
-    return latest_positions
+    return _normalize_positions(latest_positions)
 
 
 def _init_local_positions(signature: str, initial_cash: float = 10000.0) -> bool:
@@ -191,7 +267,7 @@ def _init_local_positions(signature: str, initial_cash: float = 10000.0) -> bool
         "date": today_date,
         "id": 0,
         "this_action": {"action": "init", "symbol": "CASH", "amount": initial_cash},
-        "positions": {"CASH": initial_cash}
+        "positions": _normalize_positions({"CASH": initial_cash})
     }
     
     with open(position_file_path, "w") as f:
@@ -297,14 +373,11 @@ def buy(symbol: str, qty: int) -> Dict[str, Any]:
                 "date": today_date
             }
         
-        # Get updated positions from Alpaca
+        # Get updated positions from Alpaca (source of truth)
+        account = client.get_account()
         alpaca_positions = client.get_all_positions()
-        
-        # Update local positions
-        local_positions = _get_local_positions(signature)
+        local_positions = _build_positions_from_alpaca(account, alpaca_positions)
         total_cost = filled_price * qty
-        local_positions["CASH"] = local_positions.get("CASH", 0) - total_cost
-        local_positions[symbol] = local_positions.get(symbol, 0) + qty
         
         # Record locally
         _record_local_position(
@@ -315,6 +388,20 @@ def buy(symbol: str, qty: int) -> Dict[str, Any]:
             qty=qty,
             price=filled_price,
             new_positions=local_positions
+        )
+
+        _record_balance_snapshot(
+            signature=signature,
+            today_date=today_date,
+            trade_info={
+                "action": "buy",
+                "symbol": symbol,
+                "qty": qty,
+                "filled_price": filled_price,
+                "order_id": str(order.id)
+            },
+            account=account,
+            positions=alpaca_positions
         )
         
         write_config_value("IF_TRADE", True)
@@ -451,15 +538,11 @@ def sell(symbol: str, qty: int) -> Dict[str, Any]:
                 "date": today_date
             }
         
-        # Update local positions
-        local_positions = _get_local_positions(signature)
+        # Get updated positions from Alpaca (source of truth)
+        account = client.get_account()
+        alpaca_positions = client.get_all_positions()
+        local_positions = _build_positions_from_alpaca(account, alpaca_positions)
         total_proceeds = filled_price * qty
-        local_positions["CASH"] = local_positions.get("CASH", 0) + total_proceeds
-        local_positions[symbol] = local_positions.get(symbol, 0) - qty
-        
-        # Remove position if zero
-        if local_positions.get(symbol, 0) <= 0:
-            local_positions.pop(symbol, None)
         
         # Record locally
         _record_local_position(
@@ -470,6 +553,20 @@ def sell(symbol: str, qty: int) -> Dict[str, Any]:
             qty=qty,
             price=filled_price,
             new_positions=local_positions
+        )
+
+        _record_balance_snapshot(
+            signature=signature,
+            today_date=today_date,
+            trade_info={
+                "action": "sell",
+                "symbol": symbol,
+                "qty": qty,
+                "filled_price": filled_price,
+                "order_id": str(order.id)
+            },
+            account=account,
+            positions=alpaca_positions
         )
         
         write_config_value("IF_TRADE", True)
